@@ -1,0 +1,1009 @@
+/* ==========================================================================
+   ROLAND AIRA COMPACT S-1 TWEAK SYNTHESIZER - DESIGN SYSTEM & STYLES
+   ========================================================================== */
+
+:root {
+  /* Hardware Chassis Colors */
+  --chassis-bg: #15181c;
+  --chassis-surface: #1e2229;
+  --chassis-surface-light: #282d36;
+  --chassis-border: #323842;
+  --chassis-inset: #0e1012;
+  --chassis-ridge: #3c4450;
+
+  /* AIRA Signature Lighting & Accents */
+  --aira-green: #00ff7f;
+  --aira-green-glow: rgba(0, 255, 127, 0.45);
+  --aira-green-dim: #008744;
+  --aira-red: #ff334b;
+  --aira-red-glow: rgba(255, 51, 75, 0.55);
+  --aira-orange: #ff9100;
+  --aira-orange-glow: rgba(255, 145, 0, 0.45);
+  --aira-cyan: #00e5ff;
+  --aira-cyan-glow: rgba(0, 229, 255, 0.4);
+  --aira-amber: #ffbb33;
+
+  /* Typography & Text */
+  --text-primary: #e6ebf2;
+  --text-secondary: #909bb0;
+  --text-muted: #576275;
+  --text-highlight: #ffffff;
+  --font-brand: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-digital: 'Orbitron', monospace;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Knobs & Controls */
+  --knob-cap: #242932;
+  --knob-cap-grad: linear-gradient(145deg, #2d3440, #1b1e24);
+  --knob-rim: #3f4756;
+  --knob-indicator: #00ff7f;
+  --knob-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+
+  /* Silicone Keys */
+  --key-natural: #2b313c;
+  --key-natural-border: #414a5a;
+  --key-accidental: #14171c;
+  --key-accidental-border: #222730;
+  --key-text: #adbdd4;
+  --key-active-glow: 0 0 15px var(--aira-green), inset 0 0 10px rgba(0, 255, 127, 0.6);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  background: radial-gradient(circle at 50% 20%, #1a1e26 0%, #0c0e12 100%);
+  color: var(--text-primary);
+  font-family: var(--font-brand);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  overflow-x: hidden;
+}
+
+/* ==========================================================================
+   MAIN HARDWARE CONTAINER
+   ========================================================================== */
+.groovebox-container {
+  width: 100%;
+  max-width: 1160px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.s1-hardware {
+  width: 100%;
+  background: var(--chassis-bg);
+  background-image: 
+    radial-gradient(ellipse at 50% -20%, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
+    linear-gradient(180deg, #242931 0%, #15181d 100%);
+  border: 2px solid var(--chassis-border);
+  border-radius: 16px;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.8);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+/* ==========================================================================
+   HEADER BAR
+   ========================================================================== */
+.hardware-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid var(--chassis-border);
+  padding-bottom: 12px;
+}
+
+.brand-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.roland-logo {
+  font-family: var(--font-brand);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #f0f3f8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.aira-badge {
+  font-family: var(--font-digital);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: var(--aira-green);
+  border: 1px solid var(--aira-green);
+  border-radius: 4px;
+  padding: 1px 7px;
+  box-shadow: 0 0 8px var(--aira-green-glow);
+}
+
+.badge-sub {
+  color: #fff;
+  font-weight: 500;
+  font-size: 10px;
+  margin-left: 3px;
+}
+
+.model-center {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.model-name {
+  font-family: var(--font-digital);
+  font-size: 24px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 2px;
+}
+
+.model-desc {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: var(--text-secondary);
+}
+
+.header-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-power, .btn-icon-header {
+  background: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-brand);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0,0,0,0.4);
+}
+
+.btn-power:hover, .btn-icon-header:hover {
+  background: var(--chassis-surface-light);
+  color: var(--text-primary);
+}
+
+.btn-power.active .power-led {
+  background: var(--aira-green);
+  box-shadow: 0 0 10px var(--aira-green-glow);
+}
+
+.power-led, .midi-led, .rec-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #333a45;
+  transition: all 0.15s ease;
+}
+
+.midi-led.active {
+  background: var(--aira-cyan);
+  box-shadow: 0 0 10px var(--aira-cyan-glow);
+}
+
+.rec-led.recording {
+  background: var(--aira-red);
+  box-shadow: 0 0 10px var(--aira-red-glow);
+  animation: blink 0.7s infinite alternate;
+}
+
+@keyframes blink {
+  from { opacity: 1; }
+  to { opacity: 0.2; }
+}
+
+/* ==========================================================================
+   UPPER RACK: 7-SEGMENT DISPLAY & MASTER CONTROLS
+   ========================================================================== */
+.upper-rack {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  background: var(--chassis-inset);
+  border: 1px solid var(--chassis-border);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.display-panel {
+  display: flex;
+  align-items: center;
+}
+
+.screen-frame {
+  background: #090a0d;
+  border: 2px solid #202630;
+  border-radius: 8px;
+  padding: 10px 14px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(255, 255, 255, 0.05);
+}
+
+.seven-segment-display {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.seg-char {
+  font-family: var(--font-digital);
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--aira-green);
+  text-shadow: 0 0 12px var(--aira-green-glow), 0 0 4px var(--aira-green);
+  background: #0d1a14;
+  border-radius: 4px;
+  padding: 2px 8px;
+  min-width: 32px;
+  text-align: center;
+  border: 1px solid rgba(0, 255, 127, 0.2);
+}
+
+.screen-subinfo {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--aira-amber);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scope-container {
+  background: #050807;
+  border: 1px solid #142a1f;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 54px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#scope-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.top-knobs-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mode-select-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.panel-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+}
+
+.btn-row, .btn-micro-row {
+  display: flex;
+  gap: 4px;
+}
+
+.mode-btn, .micro-btn, .page-btn, .btn-step-nav, .btn-micro {
+  background: var(--chassis-bg);
+  border: 1px solid var(--chassis-border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-family: var(--font-brand);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.mode-btn:hover, .micro-btn:hover, .page-btn:hover, .btn-step-nav:hover, .btn-micro:hover {
+  background: var(--chassis-surface-light);
+  color: var(--text-primary);
+}
+
+.mode-btn.active, .micro-btn.active, .page-btn.active {
+  background: var(--chassis-surface-light);
+  color: var(--aira-green);
+  border-color: var(--aira-green);
+  box-shadow: 0 0 8px var(--aira-green-glow);
+}
+
+.preset-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preset-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.custom-select {
+  background: var(--chassis-inset);
+  color: var(--text-primary);
+  border: 1px solid var(--chassis-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  flex: 1;
+}
+
+.custom-select:focus {
+  border-color: var(--aira-green);
+}
+
+.btn-tiny {
+  background: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.btn-tiny:hover {
+  background: var(--chassis-surface-light);
+  color: var(--aira-orange);
+}
+
+/* ==========================================================================
+   SYNTH ENGINE PANELS & BLOCKS
+   ========================================================================== */
+.synth-engine-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.synth-block {
+  background: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 3px 6px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+
+.block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding-bottom: 5px;
+}
+
+.block-title {
+  font-family: var(--font-digital);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--text-highlight);
+}
+
+.block-subtitle {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.block-knob-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 12px 8px;
+}
+
+.adsr-grid {
+  justify-content: space-between;
+}
+
+.sub-type-group, .lfo-shape-group, .chorus-mode-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--chassis-inset);
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--chassis-border);
+}
+
+.sub-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--text-secondary);
+}
+
+.btn-tag {
+  background: var(--aira-orange);
+  color: #000;
+  font-family: var(--font-brand);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 6px;
+  cursor: pointer;
+  margin-top: 2px;
+  transition: transform 0.1s ease;
+}
+
+.btn-tag:hover {
+  transform: scale(1.06);
+}
+
+.highlight-s1 {
+  background: rgba(255, 145, 0, 0.06);
+  border-radius: 6px;
+  padding: 4px;
+  border: 1px dashed rgba(255, 145, 0, 0.3);
+}
+
+/* ==========================================================================
+   ROTARY KNOB COMPONENT
+   ========================================================================== */
+.knob-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.knob-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.rotary-knob {
+  width: 44px;
+  height: 44px;
+  position: relative;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.knob-large-group .rotary-knob {
+  width: 52px;
+  height: 52px;
+}
+
+.knob-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--aira-green) 0deg,
+    var(--aira-green) var(--knob-angle, 0deg),
+    #222731 var(--knob-angle, 0deg),
+    #222731 270deg,
+    transparent 270deg
+  );
+  transform: rotate(-135deg);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.1s;
+}
+
+.knob-dial {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  background: var(--knob-cap-grad);
+  border: 1.5px solid var(--knob-rim);
+  border-radius: 50%;
+  box-shadow: var(--knob-shadow);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  transform: rotate(var(--knob-rotation, -135deg));
+  transition: transform 0.04s cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+.knob-large-group .knob-dial {
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+}
+
+.knob-pointer {
+  width: 2.5px;
+  height: 9px;
+  background: var(--knob-indicator);
+  border-radius: 2px;
+  margin-top: 2px;
+  box-shadow: 0 0 4px var(--aira-green-glow);
+}
+
+/* ==========================================================================
+   SEQUENCER TRANSPORT BAR
+   ========================================================================== */
+.sequencer-transport-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--chassis-inset);
+  border: 1px solid var(--chassis-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.transport-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-transport {
+  background: var(--chassis-surface);
+  border: 1.5px solid var(--chassis-border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-brand);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  transition: all 0.12s ease;
+}
+
+.btn-transport:hover {
+  background: var(--chassis-surface-light);
+}
+
+.btn-transport:active {
+  transform: translateY(1px);
+}
+
+.btn-led {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #363d49;
+}
+
+.btn-transport.active #play-led {
+  background: var(--aira-green);
+  box-shadow: 0 0 10px var(--aira-green);
+}
+
+.btn-transport.active #rec-motion-led {
+  background: var(--aira-red);
+  box-shadow: 0 0 10px var(--aira-red);
+  animation: blink 0.6s infinite alternate;
+}
+
+.btn-transport.active #loop-led {
+  background: var(--aira-orange);
+  box-shadow: 0 0 10px var(--aira-orange);
+}
+
+.btn-transport.active #arp-led {
+  background: var(--aira-cyan);
+  box-shadow: 0 0 10px var(--aira-cyan);
+}
+
+.page-selector, .octave-controls, .edit-mode-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+}
+
+.page-btn-group {
+  display: flex;
+  gap: 4px;
+}
+
+.octave-indicator {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--aira-green);
+  background: var(--chassis-surface);
+  border: 1px solid var(--chassis-border);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btn-danger {
+  color: var(--aira-red);
+  border-color: rgba(255, 51, 75, 0.4);
+}
+
+.btn-danger:hover {
+  background: rgba(255, 51, 75, 0.15);
+  color: #fff;
+}
+
+/* ==========================================================================
+   16 TACTILE STEP KEYS / KEYBOARD
+   ========================================================================== */
+.step-keyboard-container {
+  background: #0d0f12;
+  border: 2px solid var(--chassis-border);
+  border-radius: 12px;
+  padding: 14px 12px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.85);
+}
+
+.step-keyboard-keys {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 6px;
+}
+
+.step-key {
+  background: var(--key-natural);
+  border: 1.5px solid var(--key-natural-border);
+  border-radius: 6px;
+  height: 95px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 3px 5px 3px;
+  cursor: pointer;
+  box-shadow: 
+    0 4px 6px rgba(0, 0, 0, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  position: relative;
+  transition: transform 0.06s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+}
+
+.step-key.accidental {
+  background: var(--key-accidental);
+  border-color: var(--key-accidental-border);
+  height: 85px;
+  margin-top: 0;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.8),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+.step-key:hover {
+  filter: brightness(1.18);
+}
+
+.step-key:active, .step-key.key-pressed {
+  transform: translateY(2px);
+  filter: brightness(1.3);
+}
+
+/* LED Indicator atop each step */
+.step-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #252b36;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  transition: all 0.08s ease;
+}
+
+/* Step Sequencer Active Trigger */
+.step-key.active-step .step-led {
+  background: var(--aira-orange);
+  box-shadow: 0 0 8px var(--aira-orange-glow);
+}
+
+/* Current Playing Playhead Chase LED */
+.step-key.current-chase {
+  border-color: #fff;
+  box-shadow: var(--key-active-glow);
+}
+
+.step-key.current-chase .step-led {
+  background: var(--aira-green) !important;
+  box-shadow: 0 0 12px var(--aira-green) !important;
+}
+
+.step-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.step-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.note-label {
+  font-family: var(--font-digital);
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.step-key.accidental .note-label {
+  color: var(--aira-amber);
+}
+
+.kb-shortcut {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: #6d7b92;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.step-subinfo-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.step-key.has-prob .step-subinfo-dot {
+  background: var(--aira-cyan);
+  box-shadow: 0 0 5px var(--aira-cyan);
+}
+
+.step-key.has-ratchet .step-subinfo-dot {
+  background: var(--aira-red);
+  box-shadow: 0 0 5px var(--aira-red);
+}
+
+/* ==========================================================================
+   FOOTER BAR
+   ========================================================================== */
+.hardware-footer {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid var(--chassis-border);
+  padding-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.key-hint {
+  color: var(--aira-green);
+  font-weight: 700;
+  background: rgba(0, 255, 127, 0.08);
+  border: 1px solid rgba(0, 255, 127, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-right: 4px;
+}
+
+/* ==========================================================================
+   OSC DRAW MODAL
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal-card {
+  background: var(--chassis-bg);
+  border: 2px solid var(--aira-orange);
+  border-radius: 14px;
+  padding: 22px;
+  width: 90%;
+  max-width: 600px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 145, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--chassis-border);
+  padding-bottom: 8px;
+}
+
+.modal-title {
+  font-family: var(--font-digital);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--aira-orange);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.btn-close:hover {
+  color: #fff;
+}
+
+.modal-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.draw-canvas-wrapper {
+  background: #080a0d;
+  border: 2px solid #28303d;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  cursor: crosshair;
+  height: 200px;
+}
+
+#draw-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.draw-presets-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.btn-primary {
+  background: var(--aira-green);
+  color: #000;
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 0 12px var(--aira-green-glow);
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   RESPONSIVENESS
+   ========================================================================== */
+@media (max-width: 980px) {
+  .upper-rack {
+    grid-template-columns: 1fr;
+  }
+  .step-keyboard-keys {
+    gap: 3px;
+  }
+  .step-key {
+    height: 80px;
+  }
+}
+
+@media (max-width: 680px) {
+  body {
+    padding: 8px;
+  }
+  .s1-hardware {
+    padding: 14px 10px;
+  }
+  .step-keyboard-keys {
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+  }
+  .hardware-footer {
+    display: none;
+  }
+}
