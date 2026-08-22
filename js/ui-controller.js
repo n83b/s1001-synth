@@ -8,7 +8,7 @@ class S1UIController {
     this.engine = audioEngine;
     this.seq = sequencer;
 
-    this.currentOctave = 4; // MIDI note 60 = C4
+    this.currentOctave = 0; // Center octave: 0 (range -3 to +3, 0 = C4/60)
     this.displayTimeout = null;
 
     // Active playing notes
@@ -62,6 +62,31 @@ class S1UIController {
         this.subInfo.textContent = `READY • TEMPO ${this.engine.params.tempo}`;
       }
     }, 2500);
+  }
+
+  formatOctaveText(oct) {
+    if (oct > 0) return `OCT +${oct}`;
+    if (oct < 0) return `OCT ${oct}`;
+    return `OCT 0`;
+  }
+
+  formatOctaveDisplay(oct) {
+    if (oct > 0) return `OC+${oct}`;
+    if (oct < 0) return `OC-${Math.abs(oct)}`;
+    return `OC 0`;
+  }
+
+  setOctave(newOct, updateScreen = false) {
+    this.currentOctave = Math.max(-3, Math.min(3, newOct));
+    if (this.octaveDisplay) {
+      this.octaveDisplay.textContent = this.formatOctaveText(this.currentOctave);
+    }
+    if (updateScreen) {
+      const disp = this.formatOctaveDisplay(this.currentOctave);
+      const sub = this.currentOctave > 0 ? `OCTAVE +${this.currentOctave}` : (this.currentOctave < 0 ? `OCTAVE ${this.currentOctave}` : 'OCTAVE 0 (MIDDLE C)');
+      this.setDisplay(disp, sub);
+    }
+    this.updateNoteKeysHighlight();
   }
 
   // =========================================================================
@@ -373,20 +398,28 @@ class S1UIController {
             tapTimeouts.delete(pageIdx);
           }
 
-          // Toggle page loop
-          const isLooping = this.seq.togglePageLoop(pageIdx);
+          // Toggle or expand page loop
+          const loopInfo = this.seq.togglePageLoop(pageIdx);
           this.seq.currentPage = pageIdx;
           this.seq.selectedStep = null;
           this.updatePageButtonsUI();
           this.updateStepSelectKeysUI();
           this.updateNoteKeysHighlight();
 
-          const pageNum = pageIdx + 1;
-          const startStep = pageIdx * 16 + 1;
-          const endStep = (pageIdx + 1) * 16;
-          if (isLooping) {
-            this.setDisplay(`LP0${pageNum}`, `PAGE ${pageNum} LOOP ACTIVE (STEPS ${startStep}-${endStep})`);
+          if (loopInfo.isLooping) {
+            const startP = loopInfo.start + 1;
+            const endP = loopInfo.end + 1;
+            const startStep = loopInfo.start * 16 + 1;
+            const endStep = (loopInfo.end + 1) * 16;
+            if (startP === endP) {
+              this.setDisplay(`LP0${startP}`, `PAGE ${startP} LOOP ACTIVE (STEPS ${startStep}-${endStep})`);
+            } else {
+              this.setDisplay(`L${startP}-${endP}`, `PAGES ${startP}-${endP} LOOP ACTIVE (STEPS ${startStep}-${endStep})`);
+            }
           } else {
+            const pageNum = pageIdx + 1;
+            const startStep = pageIdx * 16 + 1;
+            const endStep = (pageIdx + 1) * 16;
             this.setDisplay(`PG ${pageNum}`, `PAGE ${pageNum} (STEPS ${startStep}-${endStep}) • LOOP OFF`);
           }
         } else {
@@ -394,9 +427,6 @@ class S1UIController {
           const timeout = setTimeout(() => {
             tapTimeouts.delete(pageIdx);
 
-            if (this.seq.isPageLoop) {
-              this.seq.pageLoopIndex = pageIdx;
-            }
             this.seq.currentPage = pageIdx;
             this.seq.selectedStep = null;
             this.updatePageButtonsUI();
@@ -407,7 +437,13 @@ class S1UIController {
             const startStep = pageIdx * 16 + 1;
             const endStep = (pageIdx + 1) * 16;
             if (this.seq.isPageLoop) {
-              this.setDisplay(`LP0${pageNum}`, `PAGE ${pageNum} LOOPING (STEPS ${startStep}-${endStep})`);
+              const startP = this.seq.pageLoopStart + 1;
+              const endP = this.seq.pageLoopEnd + 1;
+              if (startP === endP) {
+                this.setDisplay(`LP0${startP}`, `PAGE ${pageNum} VIEW (LOOPING PAGE ${startP})`);
+              } else {
+                this.setDisplay(`L${startP}-${endP}`, `PAGE ${pageNum} VIEW (LOOPING PAGES ${startP}-${endP})`);
+              }
             } else {
               this.setDisplay(`PG ${pageNum}`, `PAGE ${pageNum} (STEPS ${startStep}-${endStep})`);
             }
@@ -423,21 +459,15 @@ class S1UIController {
 
     btnOctDown.addEventListener('click', () => {
       this.engine.ensureAudioContext();
-      if (this.currentOctave > 1) {
-        this.currentOctave--;
-        this.octaveDisplay.textContent = `OCT ${this.currentOctave}`;
-        this.setDisplay(`OC ${this.currentOctave}`, `OCTAVE ${this.currentOctave}`);
-        this.updateNoteKeysHighlight();
+      if (this.currentOctave > -3) {
+        this.setOctave(this.currentOctave - 1, true);
       }
     });
 
     btnOctUp.addEventListener('click', () => {
       this.engine.ensureAudioContext();
-      if (this.currentOctave < 7) {
-        this.currentOctave++;
-        this.octaveDisplay.textContent = `OCT ${this.currentOctave}`;
-        this.setDisplay(`OC ${this.currentOctave}`, `OCTAVE ${this.currentOctave}`);
-        this.updateNoteKeysHighlight();
+      if (this.currentOctave < 3) {
+        this.setOctave(this.currentOctave + 1, true);
       }
     });
 
@@ -508,7 +538,7 @@ class S1UIController {
 
       const playNote = () => {
         this.engine.ensureAudioContext();
-        const midiNote = (this.currentOctave * 12) + noteOffset;
+        const midiNote = 60 + (this.currentOctave * 12) + noteOffset;
         this.engine.triggerNoteOn(midiNote, 0.9);
         key.classList.add('key-pressed');
         this.pressedKeys.add(midiNote);
@@ -516,7 +546,7 @@ class S1UIController {
       };
 
       const releaseNote = () => {
-        const midiNote = (this.currentOctave * 12) + noteOffset;
+        const midiNote = 60 + (this.currentOctave * 12) + noteOffset;
         this.engine.triggerNoteOff(midiNote);
         key.classList.remove('key-pressed');
         this.pressedKeys.delete(midiNote);
@@ -526,7 +556,7 @@ class S1UIController {
       key.addEventListener('pointerdown', () => {
         this.engine.ensureAudioContext();
         playNote();
-        const midiNote = (this.currentOctave * 12) + noteOffset;
+        const midiNote = 60 + (this.currentOctave * 12) + noteOffset;
         const step = this.seq.toggleNoteOnSelectedStep(midiNote);
         if (step) {
           this.updateNoteKeysHighlight();
@@ -545,6 +575,14 @@ class S1UIController {
       key.addEventListener('pointerdown', () => {
         this.engine.ensureAudioContext();
         const res = this.seq.handleStepSelectPress(localIdx);
+
+        // When selecting a step with note(s), automatically sync the octave view to its base note
+        if (res && res.step && res.step.notes && res.step.notes.size > 0) {
+          const baseNote = Math.min(...res.step.notes);
+          const noteOctave = Math.max(-3, Math.min(3, Math.floor((baseNote - 60) / 12)));
+          this.setOctave(noteOctave, false);
+        }
+
         this.updateStepSelectKeysUI();
         this.updateNoteKeysHighlight();
 
@@ -591,7 +629,7 @@ class S1UIController {
       if (!step) return;
 
       const isSelected = (selectedStep === stepIdx);
-      const isGateTrail = (selectedStep !== null && stepIdx > selectedStep && stepIdx < (selectedStep + gateLen));
+      const isGateTrail = (selectedStep !== null && stepIdx >= selectedStep && stepIdx < (selectedStep + gateLen));
 
       key.classList.toggle('active-step', step.notes.size > 0);
       key.classList.toggle('has-prob', step.probability < 1.0);
@@ -604,8 +642,9 @@ class S1UIController {
     const pageBtns = document.querySelectorAll('.page-btn');
     pageBtns.forEach(btn => {
       const p = parseInt(btn.dataset.page, 10);
+      const isLooping = this.seq.isPageLoop && (p >= this.seq.pageLoopStart && p <= this.seq.pageLoopEnd);
       btn.classList.toggle('active', this.seq.currentPage === p);
-      btn.classList.toggle('page-looping', this.seq.isPageLoop && this.seq.pageLoopIndex === p);
+      btn.classList.toggle('page-looping', isLooping);
     });
   }
 
@@ -616,7 +655,7 @@ class S1UIController {
 
     noteKeys.forEach(key => {
       const noteOffset = parseInt(key.dataset.note, 10) - 60;
-      const midiNote = (this.currentOctave * 12) + noteOffset;
+      const midiNote = 60 + (this.currentOctave * 12) + noteOffset;
       key.classList.toggle('note-in-step', !!stepNotes && stepNotes.has(midiNote));
     });
   }

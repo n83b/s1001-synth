@@ -23,9 +23,10 @@ class S1Sequencer {
     this.stepLoopStart = 0;
     this.stepLoopLength = 4;
 
-    // Page Loop State (double-tap page button to loop that 16-step page)
+    // Page Loop State (double-tap page button to loop page / range)
     this.isPageLoop = false;
-    this.pageLoopIndex = 0;
+    this.pageLoopStart = 0;
+    this.pageLoopEnd = 0;
 
     // 64 Steps Data Storage
     this.steps = [];
@@ -77,26 +78,45 @@ class S1Sequencer {
   }
 
   // =========================================================================
-  // PAGE LOOP TOGGLE
+  // PAGE LOOP TOGGLE & MULTI-PAGE RANGE
   // =========================================================================
   togglePageLoop(pageIndex) {
     const targetPage = (pageIndex !== undefined) ? pageIndex : this.currentPage;
-    if (this.isPageLoop && this.pageLoopIndex === targetPage) {
-      this.isPageLoop = false;
-      return false;
-    } else {
+
+    if (!this.isPageLoop) {
+      // First page loop: 1-page loop
       this.isPageLoop = true;
-      this.pageLoopIndex = targetPage;
+      this.pageLoopStart = targetPage;
+      this.pageLoopEnd = targetPage;
       this.currentPage = targetPage;
-      if (this.isPlaying) {
-        const pageStart = this.pageLoopIndex * 16;
-        const pageEnd = pageStart + 16;
-        if (this.currentStep < pageStart || this.currentStep >= pageEnd) {
-          this.currentStep = pageStart;
-        }
+    } else {
+      // Page loop is already active
+      if (this.pageLoopStart === targetPage && this.pageLoopEnd === targetPage) {
+        // Double-tapping the only active loop page turns page loop OFF
+        this.isPageLoop = false;
+        return { isLooping: false, start: 0, end: 0 };
+      } else if (targetPage >= this.pageLoopStart && targetPage <= this.pageLoopEnd && this.pageLoopStart !== this.pageLoopEnd) {
+        // Double-tapping inside an existing multi-page range collapses to just this page
+        this.pageLoopStart = targetPage;
+        this.pageLoopEnd = targetPage;
+        this.currentPage = targetPage;
+      } else {
+        // Double-tapping another page expands the loop range to include everything in between
+        this.pageLoopStart = Math.min(this.pageLoopStart, targetPage);
+        this.pageLoopEnd = Math.max(this.pageLoopEnd, targetPage);
+        this.currentPage = targetPage;
       }
-      return true;
     }
+
+    if (this.isPlaying && this.isPageLoop) {
+      const loopStartStep = this.pageLoopStart * 16;
+      const loopEndStep = (this.pageLoopEnd + 1) * 16;
+      if (this.currentStep < loopStartStep || this.currentStep >= loopEndStep) {
+        this.currentStep = loopStartStep;
+      }
+    }
+
+    return { isLooping: this.isPageLoop, start: this.pageLoopStart, end: this.pageLoopEnd };
   }
 
   // =========================================================================
@@ -110,7 +130,11 @@ class S1Sequencer {
     if (this.isStepLoop) {
       this.currentStep = this.stepLoopStart;
     } else if (this.isPageLoop) {
-      this.currentStep = this.pageLoopIndex * 16;
+      const loopStartStep = this.pageLoopStart * 16;
+      const loopEndStep = (this.pageLoopEnd + 1) * 16;
+      if (this.currentStep < loopStartStep || this.currentStep >= loopEndStep) {
+        this.currentStep = loopStartStep;
+      }
     } else {
       this.currentStep = this.currentPage * 16;
     }
@@ -160,11 +184,11 @@ class S1Sequencer {
         this.currentStep = this.stepLoopStart;
       }
     } else if (this.isPageLoop) {
-      const pageStart = this.pageLoopIndex * 16;
-      const pageEnd = pageStart + 16;
+      const loopStartStep = this.pageLoopStart * 16;
+      const loopEndStep = (this.pageLoopEnd + 1) * 16;
       this.currentStep++;
-      if (this.currentStep < pageStart || this.currentStep >= pageEnd) {
-        this.currentStep = pageStart;
+      if (this.currentStep < loopStartStep || this.currentStep >= loopEndStep) {
+        this.currentStep = loopStartStep;
       }
     } else {
       this.currentStep = (this.currentStep + 1) % this.totalSteps;

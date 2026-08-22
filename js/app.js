@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const key = e.key.toLowerCase();
     if (KEY_NOTE_MAP[key] !== undefined && !activeComputerKeys.has(key)) {
       const noteOffset = KEY_NOTE_MAP[key];
-      const midiNote = (uiController.currentOctave * 12) + noteOffset;
+      const midiNote = 60 + (uiController.currentOctave * 12) + noteOffset;
 
       audioEngine.triggerNoteOn(midiNote, 0.9);
       activeComputerKeys.set(key, midiNote);
