@@ -37,7 +37,7 @@
   --knob-cap-grad: linear-gradient(145deg, #2d3440, #1b1e24);
   --knob-rim: #3f4756;
   --knob-indicator: #00ff7f;
-  --knob-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  --knob-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15);
 
   /* Silicone Keys */
   --key-natural: #2b313c;
@@ -45,7 +45,7 @@
   --key-accidental: #14171c;
   --key-accidental-border: #222730;
   --key-text: #adbdd4;
-  --key-active-glow: 0 0 15px var(--aira-green), inset 0 0 10px rgba(0, 255, 127, 0.6);
+  --key-active-glow: 0 0 14px var(--aira-green), inset 0 0 8px rgba(0, 255, 127, 0.6);
 }
 
 *, *::before, *::after {
@@ -64,7 +64,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: 16px;
   overflow-x: hidden;
 }
 
@@ -73,7 +73,12 @@ body {
    ========================================================================== */
 .groovebox-container {
   width: 100%;
-  max-width: 1160px;
+  max-width: 1140px;
+  /* Floor: the instrument never shrinks below its desktop size */
+  min-width: 982px;
+  /* Responsive rules below query this container's width, not the viewport,
+     so a narrow browser window scrolls instead of collapsing the layout */
+  container-type: inline-size;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -92,10 +97,10 @@ body {
     0 0 0 1px rgba(255, 255, 255, 0.05),
     inset 0 1px 2px rgba(255, 255, 255, 0.15),
     inset 0 -2px 6px rgba(0, 0, 0, 0.8);
-  padding: 20px 24px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   position: relative;
 }
 
@@ -107,7 +112,7 @@ body {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1.5px solid var(--chassis-border);
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 
 .brand-left {
@@ -118,7 +123,7 @@ body {
 
 .roland-logo {
   font-family: var(--font-brand);
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: 3px;
   color: #f0f3f8;
@@ -127,20 +132,20 @@ body {
 
 .aira-badge {
   font-family: var(--font-digital);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
   letter-spacing: 1.5px;
   color: var(--aira-green);
   border: 1px solid var(--aira-green);
   border-radius: 4px;
-  padding: 1px 7px;
+  padding: 1px 6px;
   box-shadow: 0 0 8px var(--aira-green-glow);
 }
 
 .badge-sub {
   color: #fff;
   font-weight: 500;
-  font-size: 10px;
+  font-size: 9px;
   margin-left: 3px;
 }
 
@@ -152,14 +157,14 @@ body {
 
 .model-name {
   font-family: var(--font-digital);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 900;
   color: #fff;
   letter-spacing: 2px;
 }
 
 .model-desc {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 2.5px;
   color: var(--text-secondary);
@@ -167,7 +172,7 @@ body {
 
 .header-right {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -175,9 +180,9 @@ body {
   background: var(--chassis-surface);
   border: 1px solid var(--chassis-border);
   border-radius: 6px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   font-family: var(--font-brand);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.2px;
   color: var(--text-secondary);
@@ -200,8 +205,8 @@ body {
 }
 
 .power-led, .midi-led, .rec-led {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: #333a45;
   transition: all 0.15s ease;
@@ -224,60 +229,60 @@ body {
 }
 
 /* ==========================================================================
-   UPPER RACK: 7-SEGMENT DISPLAY & MASTER CONTROLS
+   UPPER RACK: DISPLAY, 3 MASTER KNOBS & VOICE/PRESET (HORIZONTAL ROW)
    ========================================================================== */
 .upper-rack {
-  display: grid;
-  grid-template-columns: 360px 1fr;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
   background: var(--chassis-inset);
   border: 1px solid var(--chassis-border);
-  border-radius: 12px;
-  padding: 14px 18px;
+  border-radius: 10px;
+  padding: 10px 16px;
 }
 
 .display-panel {
-  display: flex;
-  align-items: center;
+  flex: 0 0 320px;
 }
 
 .screen-frame {
   background: #090a0d;
   border: 2px solid #202630;
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(255, 255, 255, 0.05);
 }
 
 .seven-segment-display {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   justify-content: flex-start;
   align-items: center;
 }
 
 .seg-char {
   font-family: var(--font-digital);
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 900;
   letter-spacing: 2px;
   color: var(--aira-green);
-  text-shadow: 0 0 12px var(--aira-green-glow), 0 0 4px var(--aira-green);
+  text-shadow: 0 0 10px var(--aira-green-glow), 0 0 3px var(--aira-green);
   background: #0d1a14;
   border-radius: 4px;
-  padding: 2px 8px;
-  min-width: 32px;
+  padding: 2px 6px;
+  min-width: 28px;
   text-align: center;
   border: 1px solid rgba(0, 255, 127, 0.2);
 }
 
 .screen-subinfo {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 1px;
   color: var(--aira-amber);
@@ -292,7 +297,7 @@ body {
   border: 1px solid #142a1f;
   border-radius: 4px;
   overflow: hidden;
-  height: 54px;
+  height: 44px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -304,28 +309,46 @@ body {
   display: block;
 }
 
+/* Master Controls Flex Row */
 .top-knobs-panel {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.master-knobs-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  flex: 0 0 auto;
+}
+
+.master-knobs-row .knob-group {
+  width: auto;
+  min-width: 50px;
+}
+
+.master-knobs-row .rotary-knob {
+  width: 44px;
+  height: 44px;
 }
 
 .mode-select-box {
+  flex: 0 0 260px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background: var(--chassis-surface);
   border: 1px solid var(--chassis-border);
   border-radius: 8px;
-  padding: 8px 12px;
-  flex: 1;
-  min-width: 260px;
+  padding: 6px 12px;
 }
 
 .panel-section-title {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.5px;
   color: var(--text-secondary);
@@ -334,20 +357,24 @@ body {
 .btn-row, .btn-micro-row {
   display: flex;
   gap: 4px;
+  width: 100%;
 }
 
 .mode-btn, .micro-btn, .page-btn, .btn-step-nav, .btn-micro {
   background: var(--chassis-bg);
   border: 1px solid var(--chassis-border);
   border-radius: 4px;
-  padding: 5px 8px;
+  padding: 4px 6px;
   font-family: var(--font-brand);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.12s ease;
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .mode-btn:hover, .micro-btn:hover, .page-btn:hover, .btn-step-nav:hover, .btn-micro:hover {
@@ -359,7 +386,23 @@ body {
   background: var(--chassis-surface-light);
   color: var(--aira-green);
   border-color: var(--aira-green);
-  box-shadow: 0 0 8px var(--aira-green-glow);
+  box-shadow: 0 0 6px var(--aira-green-glow);
+}
+
+.page-btn.page-looping {
+  color: var(--aira-orange) !important;
+  border-color: var(--aira-orange) !important;
+  box-shadow: 0 0 10px var(--aira-orange-glow), inset 0 0 6px rgba(255, 145, 0, 0.4) !important;
+  animation: pageLoopPulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes pageLoopPulse {
+  from {
+    box-shadow: 0 0 4px var(--aira-orange-glow), inset 0 0 2px rgba(255, 145, 0, 0.2);
+  }
+  to {
+    box-shadow: 0 0 12px var(--aira-orange), inset 0 0 8px rgba(255, 145, 0, 0.6);
+  }
 }
 
 .preset-selector-row {
@@ -369,7 +412,7 @@ body {
 }
 
 .preset-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
   color: var(--text-secondary);
@@ -381,9 +424,9 @@ body {
   color: var(--text-primary);
   border: 1px solid var(--chassis-border);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   outline: none;
   cursor: pointer;
@@ -398,8 +441,8 @@ body {
   background: var(--chassis-surface);
   border: 1px solid var(--chassis-border);
   border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
+  padding: 3px 6px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-primary);
   cursor: pointer;
@@ -411,134 +454,158 @@ body {
 }
 
 /* ==========================================================================
-   SYNTH ENGINE PANELS & BLOCKS
+   SYNTH ENGINE PANELS & BLOCKS (STRICTLY 2 ROWS ALIGNED ACROSS ALL SECTIONS)
    ========================================================================== */
 .synth-engine-panel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: 2.2fr 1.6fr 1.1fr 1.1fr 1.6fr;
+  gap: 8px;
+  align-items: stretch;
 }
 
 .synth-block {
   background: var(--chassis-surface);
   border: 1px solid var(--chassis-border);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 8px;
+  padding: 8px 8px 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 3px 6px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 2px 5px rgba(0, 0, 0, 0.35);
   position: relative;
 }
 
 .block-header {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  justify-content: flex-start;
+  align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  padding-bottom: 5px;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+  height: 20px;
 }
 
 .block-title {
   font-family: var(--font-digital);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 1.5px;
   color: var(--text-highlight);
 }
 
-.block-subtitle {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-}
-
+/* 2-Row Strict Knob Grids - Identical Row Heights (58px + 58px) for 100% Horizontal Alignment */
 .block-knob-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-around;
-  gap: 12px 8px;
+  display: grid;
+  grid-template-rows: 58px 58px;
+  gap: 6px;
+  align-items: start;
+  justify-items: center;
+  height: 122px;
 }
 
-.adsr-grid {
-  justify-content: space-between;
+.grid-4x2 {
+  grid-template-columns: repeat(4, 1fr);
 }
 
-.sub-type-group, .lfo-shape-group, .chorus-mode-group {
+.grid-3x2 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-2x2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.block-knob-grid .knob-group {
+  width: 100%;
+}
+
+/* Bottom Selector Rows Aligned Across Blocks (44px height) */
+.bottom-selector {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   background: var(--chassis-inset);
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 4px 6px;
+  border-radius: 5px;
   border: 1px solid var(--chassis-border);
+  margin-top: 8px;
+  height: 44px;
+  justify-content: center;
+}
+
+/* Empty spacer for Filter & Envelope to preserve identical baseline */
+.bottom-selector-spacer {
+  width: 100%;
+  height: 44px;
+  margin-top: 8px;
 }
 
 .sub-label {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
-  letter-spacing: 1.2px;
+  letter-spacing: 1px;
   color: var(--text-secondary);
+  text-align: center;
+}
+
+.label-with-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .btn-tag {
   background: var(--aira-orange);
   color: #000;
   font-family: var(--font-brand);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 800;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   border: none;
-  border-radius: 3px;
-  padding: 2px 6px;
+  border-radius: 2px;
+  padding: 1px 3px;
   cursor: pointer;
-  margin-top: 2px;
   transition: transform 0.1s ease;
 }
 
 .btn-tag:hover {
-  transform: scale(1.06);
+  transform: scale(1.08);
 }
 
 .highlight-s1 {
-  background: rgba(255, 145, 0, 0.06);
-  border-radius: 6px;
-  padding: 4px;
-  border: 1px dashed rgba(255, 145, 0, 0.3);
+  background: rgba(255, 145, 0, 0.05);
+  border-radius: 4px;
+  padding: 1px;
+  border: 1px dashed rgba(255, 145, 0, 0.25);
 }
 
 /* ==========================================================================
-   ROTARY KNOB COMPONENT
+   ROTARY KNOB COMPONENT (UNIFORM SIZE FOR COMPLETE ALIGNMENT)
    ========================================================================== */
 .knob-group {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  width: auto;
 }
 
 .knob-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: var(--text-secondary);
   text-transform: uppercase;
   text-align: center;
+  white-space: nowrap;
 }
 
 .rotary-knob {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   position: relative;
   cursor: ns-resize;
   touch-action: none;
-}
-
-.knob-large-group .rotary-knob {
-  width: 52px;
-  height: 52px;
 }
 
 .knob-ring {
@@ -556,16 +623,16 @@ body {
     transparent 270deg
   );
   transform: rotate(-135deg);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
   transition: opacity 0.1s;
 }
 
 .knob-dial {
   position: absolute;
-  top: 5px;
-  left: 5px;
-  right: 5px;
-  bottom: 5px;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
   background: var(--knob-cap-grad);
   border: 1.5px solid var(--knob-rim);
   border-radius: 50%;
@@ -577,20 +644,13 @@ body {
   transition: transform 0.04s cubic-bezier(0.1, 0.9, 0.2, 1);
 }
 
-.knob-large-group .knob-dial {
-  top: 6px;
-  left: 6px;
-  right: 6px;
-  bottom: 6px;
-}
-
 .knob-pointer {
-  width: 2.5px;
-  height: 9px;
+  width: 2px;
+  height: 8px;
   background: var(--knob-indicator);
   border-radius: 2px;
   margin-top: 2px;
-  box-shadow: 0 0 4px var(--aira-green-glow);
+  box-shadow: 0 0 3px var(--aira-green-glow);
 }
 
 /* ==========================================================================
@@ -602,29 +662,30 @@ body {
   align-items: center;
   background: var(--chassis-inset);
   border: 1px solid var(--chassis-border);
-  border-radius: 10px;
-  padding: 10px 14px;
+  border-radius: 8px;
+  padding: 8px 12px;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .transport-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .btn-transport {
   background: var(--chassis-surface);
   border: 1.5px solid var(--chassis-border);
-  border-radius: 6px;
-  padding: 8px 14px;
+  border-radius: 5px;
+  padding: 6px 12px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-family: var(--font-brand);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 1.2px;
+  letter-spacing: 1px;
   color: var(--text-primary);
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.08);
@@ -640,8 +701,8 @@ body {
 }
 
 .btn-led {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #363d49;
 }
@@ -670,29 +731,29 @@ body {
 .page-selector, .octave-controls, .edit-mode-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .bar-title {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
   color: var(--text-secondary);
 }
 
 .page-btn-group {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
 
 .octave-indicator {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--aira-green);
   background: var(--chassis-surface);
   border: 1px solid var(--chassis-border);
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 4px;
 }
 
@@ -712,41 +773,141 @@ body {
 .step-keyboard-container {
   background: #0d0f12;
   border: 2px solid var(--chassis-border);
-  border-radius: 12px;
-  padding: 14px 12px;
+  border-radius: 10px;
+  padding: 10px 10px;
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.85);
 }
 
+/* Step Select Row + Note Keys share the SAME 16-column tracks
+   (single source of truth) so every step button aligns exactly
+   with the note key directly below it. */
+.step-select-keys,
 .step-keyboard-keys {
   display: grid;
   grid-template-columns: repeat(16, 1fr);
-  gap: 6px;
+  gap: 5px;
 }
 
+.step-select-keys {
+  margin-bottom: 8px;
+}
+
+.step-select-key {
+  background: var(--chassis-surface);
+  border: 1.5px solid var(--chassis-border);
+  border-radius: 5px;
+  height: 34px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  box-shadow:
+    0 3px 5px rgba(0, 0, 0, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  transition: transform 0.06s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+  /* Match the width of the note keys below exactly */
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.step-select-key:hover {
+  filter: brightness(1.2);
+}
+
+.step-select-key:active {
+  transform: translateY(1px);
+}
+
+.step-select-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #252b36;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  transition: all 0.08s ease;
+}
+
+.step-select-num {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.step-select-dot {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.step-select-key.active-step .step-select-led {
+  background: var(--aira-orange);
+  box-shadow: 0 0 8px var(--aira-orange-glow);
+}
+
+.step-select-key.current-chase {
+  border-color: #fff;
+  box-shadow: var(--key-active-glow);
+}
+
+.step-select-key.current-chase .step-select-led {
+  background: var(--aira-green) !important;
+  box-shadow: 0 0 12px var(--aira-green) !important;
+}
+
+.step-select-key.selected {
+  border-color: var(--aira-cyan);
+  box-shadow: 0 0 14px var(--aira-cyan-glow), inset 0 0 8px rgba(0, 229, 255, 0.5);
+}
+
+.step-select-key.gate-trail .step-select-dot {
+  background: var(--aira-green) !important;
+  box-shadow: 0 0 7px var(--aira-green-glow) !important;
+}
+
+.step-select-key.has-prob .step-select-dot {
+  background: var(--aira-cyan);
+  box-shadow: 0 0 5px var(--aira-cyan);
+}
+
+/* Note Keys: 2/3-scale piano keys for entering notes on the selected step
+   (grid columns shared with .step-select-keys above) */
 .step-key {
   background: var(--key-natural);
   border: 1.5px solid var(--key-natural-border);
   border-radius: 6px;
-  height: 95px;
+  height: 58px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 3px 5px 3px;
+  padding: 4px 2px 3px 2px;
   cursor: pointer;
-  box-shadow: 
+  box-shadow:
     0 4px 6px rgba(0, 0, 0, 0.6),
     inset 0 1px 1px rgba(255, 255, 255, 0.15);
   position: relative;
   transition: transform 0.06s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+  /* Fill its 1fr track exactly like the step-select keys above */
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .step-key.accidental {
   background: var(--key-accidental);
   border-color: var(--key-accidental-border);
-  height: 85px;
-  margin-top: 0;
-  box-shadow: 
+  box-shadow:
     0 4px 8px rgba(0, 0, 0, 0.8),
     inset 0 1px 1px rgba(255, 255, 255, 0.08);
 }
@@ -760,29 +921,22 @@ body {
   filter: brightness(1.3);
 }
 
-/* LED Indicator atop each step */
 .step-led {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: #252b36;
   border: 1px solid rgba(0, 0, 0, 0.6);
   transition: all 0.08s ease;
 }
 
-/* Step Sequencer Active Trigger */
-.step-key.active-step .step-led {
-  background: var(--aira-orange);
-  box-shadow: 0 0 8px var(--aira-orange-glow);
-}
-
-/* Current Playing Playhead Chase LED */
-.step-key.current-chase {
+/* Lit when this note belongs to the currently selected step */
+.step-key.note-in-step {
   border-color: #fff;
   box-shadow: var(--key-active-glow);
 }
 
-.step-key.current-chase .step-led {
+.step-key.note-in-step .step-led {
   background: var(--aira-green) !important;
   box-shadow: 0 0 12px var(--aira-green) !important;
 }
@@ -791,19 +945,12 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-}
-
-.step-num {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-muted);
+  gap: 1px;
 }
 
 .note-label {
   font-family: var(--font-digital);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   color: #fff;
 }
@@ -814,29 +961,12 @@ body {
 
 .kb-shortcut {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
   color: #6d7b92;
   background: rgba(0, 0, 0, 0.3);
-  padding: 1px 4px;
+  padding: 1px 2px;
   border-radius: 3px;
-}
-
-.step-subinfo-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: transparent;
-}
-
-.step-key.has-prob .step-subinfo-dot {
-  background: var(--aira-cyan);
-  box-shadow: 0 0 5px var(--aira-cyan);
-}
-
-.step-key.has-ratchet .step-subinfo-dot {
-  background: var(--aira-red);
-  box-shadow: 0 0 5px var(--aira-red);
 }
 
 /* ==========================================================================
@@ -847,11 +977,11 @@ body {
   justify-content: space-around;
   align-items: center;
   border-top: 1px solid var(--chassis-border);
-  padding-top: 10px;
-  font-size: 11px;
+  padding-top: 8px;
+  font-size: 10.5px;
   color: var(--text-muted);
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .key-hint {
@@ -860,8 +990,8 @@ body {
   background: rgba(0, 255, 127, 0.08);
   border: 1px solid rgba(0, 255, 127, 0.2);
   border-radius: 4px;
-  padding: 2px 6px;
-  margin-right: 4px;
+  padding: 1px 5px;
+  margin-right: 3px;
 }
 
 /* ==========================================================================
@@ -889,13 +1019,13 @@ body {
   background: var(--chassis-bg);
   border: 2px solid var(--aira-orange);
   border-radius: 14px;
-  padding: 22px;
+  padding: 20px;
   width: 90%;
-  max-width: 600px;
+  max-width: 580px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 145, 0, 0.3);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .modal-header {
@@ -908,7 +1038,7 @@ body {
 
 .modal-title {
   font-family: var(--font-digital);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 1.5px;
   color: var(--aira-orange);
@@ -927,7 +1057,7 @@ body {
 }
 
 .modal-desc {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.4;
 }
@@ -939,7 +1069,7 @@ body {
   overflow: hidden;
   position: relative;
   cursor: crosshair;
-  height: 200px;
+  height: 180px;
 }
 
 #draw-canvas {
@@ -951,24 +1081,24 @@ body {
 .draw-presets-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .btn-primary {
   background: var(--aira-green);
   color: #000;
   font-family: var(--font-brand);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 1.5px;
-  padding: 10px 18px;
+  padding: 8px 16px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   width: 100%;
-  box-shadow: 0 0 12px var(--aira-green-glow);
+  box-shadow: 0 0 10px var(--aira-green-glow);
   transition: transform 0.1s ease, filter 0.1s ease;
 }
 
@@ -980,26 +1110,35 @@ body {
 /* ==========================================================================
    RESPONSIVENESS
    ========================================================================== */
-@media (max-width: 980px) {
-  .upper-rack {
-    grid-template-columns: 1fr;
-  }
-  .step-keyboard-keys {
-    gap: 3px;
+/* Responsiveness: keyed to the instrument's own width (min-width: 982px),
+   so on narrow browsers the page scrolls horizontally instead of
+   collapsing the desktop layout. The upper rack stays horizontal at all
+   widths >= 982px (it fits: 320px display + 260px mode box + master knobs). */
+
+@container (max-width: 800px) {
+  .synth-engine-panel {
+    grid-template-columns: repeat(2, 1fr);
   }
   .step-key {
-    height: 80px;
+    height: 46px;
+  }
+  .step-select-key {
+    height: 28px;
   }
 }
 
-@media (max-width: 680px) {
+@container (max-width: 680px) {
   body {
-    padding: 8px;
+    padding: 6px;
   }
   .s1-hardware {
-    padding: 14px 10px;
+    padding: 12px 8px;
   }
-  .step-keyboard-keys {
+  .synth-engine-panel {
+    grid-template-columns: 1fr;
+  }
+  .step-keyboard-keys,
+  .step-select-keys {
     grid-template-columns: repeat(8, 1fr);
     grid-template-rows: repeat(2, 1fr);
   }

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Roland AIRA Compact S-1 Tweak Synth Groovebox</title>
-  <meta name="description" content="Virtual Web-based Roland AIRA Compact S-1 Tweak Synth Groovebox with 4-voice ACB modeling, OSC Draw, OSC Chop, 64-step Motion Sequencer, and Roland FX.">
+  <title>Barnestorm S-1001 Tweak Synth</title>
+  <meta name="description" content="Barnestorm S-1001 Tweak Synthesizer — 4-voice ACB synth with OSC Draw, OSC Chop, 64-step Motion Sequencer, and onboard FX.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -18,11 +18,10 @@
       <!-- Top Brand & Header Bar -->
       <header class="hardware-header">
         <div class="brand-left">
-          <div class="roland-logo">Roland</div>
-          <div class="aira-badge">AIRA <span class="badge-sub">Compact</span></div>
+          <div class="roland-logo">Barnestorm</div>
         </div>
         <div class="model-center">
-          <span class="model-name">S-1</span>
+          <span class="model-name">S-1001</span>
           <span class="model-desc">TWEAK SYNTHESIZER</span>
         </div>
         <div class="header-right">
@@ -41,7 +40,7 @@
         </div>
       </header>
 
-      <!-- Upper Control Row: Display, Scope, Master, Voice, Preset -->
+      <!-- Upper Control Row: Display, Scope, Master Knobs, Voice, Preset -->
       <section class="upper-rack">
         <!-- Display & Oscilloscope Center -->
         <div class="display-panel">
@@ -57,35 +56,38 @@
             <div class="screen-subinfo" id="screen-subinfo">READY • TEMPO 120</div>
             <!-- OLED CRT Waveform Oscilloscope -->
             <div class="scope-container">
-              <canvas id="scope-canvas" width="220" height="64"></canvas>
+              <canvas id="scope-canvas" width="220" height="52"></canvas>
             </div>
           </div>
         </div>
 
         <!-- Master & Performance Controls -->
         <div class="top-knobs-panel">
-          <div class="knob-group">
-            <div class="rotary-knob" data-param="masterVolume" data-min="0" data-max="1" data-default="0.8" data-step="0.01" data-label="VOLUME" id="knob-volume">
-              <div class="knob-ring"></div>
-              <div class="knob-dial"><div class="knob-pointer"></div></div>
+          <!-- 3 Master Knobs side-by-side -->
+          <div class="master-knobs-row">
+            <div class="knob-group">
+              <div class="rotary-knob" data-param="masterVolume" data-min="0" data-max="1" data-default="0.8" data-step="0.01" data-label="VOLUME" id="knob-volume">
+                <div class="knob-ring"></div>
+                <div class="knob-dial"><div class="knob-pointer"></div></div>
+              </div>
+              <span class="knob-label">VOLUME</span>
             </div>
-            <span class="knob-label">VOLUME</span>
-          </div>
 
-          <div class="knob-group">
-            <div class="rotary-knob" data-param="tempo" data-min="40" data-max="240" data-default="120" data-step="1" data-label="TEMPO" id="knob-tempo">
-              <div class="knob-ring"></div>
-              <div class="knob-dial"><div class="knob-pointer"></div></div>
+            <div class="knob-group">
+              <div class="rotary-knob" data-param="tempo" data-min="40" data-max="240" data-default="120" data-step="1" data-label="TEMPO" id="knob-tempo">
+                <div class="knob-ring"></div>
+                <div class="knob-dial"><div class="knob-pointer"></div></div>
+              </div>
+              <span class="knob-label">TEMPO</span>
             </div>
-            <span class="knob-label">TEMPO</span>
-          </div>
 
-          <div class="knob-group">
-            <div class="rotary-knob" data-param="portamento" data-min="0" data-max="1" data-default="0" data-step="0.01" data-label="PORTA" id="knob-porta">
-              <div class="knob-ring"></div>
-              <div class="knob-dial"><div class="knob-pointer"></div></div>
+            <div class="knob-group">
+              <div class="rotary-knob" data-param="portamento" data-min="0" data-max="1" data-default="0" data-step="0.01" data-label="PORTA" id="knob-porta">
+                <div class="knob-ring"></div>
+                <div class="knob-dial"><div class="knob-pointer"></div></div>
+              </div>
+              <span class="knob-label">PORTA</span>
             </div>
-            <span class="knob-label">PORTA</span>
           </div>
 
           <!-- Voice Mode Selector & Preset Dropdown -->
@@ -111,17 +113,16 @@
         </div>
       </section>
 
-      <!-- Main Synthesis Sections (Knob Panels) -->
+      <!-- Main Synthesis Sections (Laser Aligned 2 Rows of Knobs each) -->
       <section class="synth-engine-panel">
         
-        <!-- SECTION 1: OSCILLATOR & WAVE CRAFT (DRAW / CHOP) -->
+        <!-- SECTION 1: OSCILLATOR (4 x 2) -->
         <div class="synth-block" id="block-osc">
           <div class="block-header">
             <span class="block-title">OSCILLATOR</span>
-            <span class="block-subtitle">ACB TONE CRAFT</span>
           </div>
-          <div class="block-knob-grid">
-            
+          <div class="block-knob-grid grid-4x2">
+            <!-- Row 1 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="oscSaw" data-min="0" data-max="1" data-default="0.8" data-step="0.01" data-label="SAW">
                 <div class="knob-ring"></div>
@@ -154,6 +155,7 @@
               <span class="knob-label">SUB OSC</span>
             </div>
 
+            <!-- Row 2 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="oscNoise" data-min="0" data-max="1" data-default="0" data-step="0.01" data-label="NOISE">
                 <div class="knob-ring"></div>
@@ -162,24 +164,15 @@
               <span class="knob-label">NOISE</span>
             </div>
 
-            <!-- Sub Octave Type Selector -->
-            <div class="sub-type-group">
-              <span class="sub-label">SUB TYPE</span>
-              <div class="btn-micro-row">
-                <button class="micro-btn active" data-sub-mode="sub1">-1 OCT</button>
-                <button class="micro-btn" data-sub-mode="sub2">-2 OCT</button>
-                <button class="micro-btn" data-sub-mode="subPulse">PULSE</button>
-              </div>
-            </div>
-
-            <!-- S-1 SIGNATURE: OSC DRAW & OSC CHOP -->
             <div class="knob-group highlight-s1">
               <div class="rotary-knob" data-param="oscDrawMix" data-min="0" data-max="1" data-default="0" data-step="0.01" data-label="DRAW">
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
-              <span class="knob-label">OSC DRAW</span>
-              <button id="btn-open-draw" class="btn-tag" title="Edit Custom Drawn Waveform">EDIT ✎</button>
+              <div class="label-with-btn">
+                <span class="knob-label">DRAW</span>
+                <button id="btn-open-draw" class="btn-tag" title="Edit Custom Drawn Waveform">EDIT ✎</button>
+              </div>
             </div>
 
             <div class="knob-group highlight-s1">
@@ -187,7 +180,7 @@
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
-              <span class="knob-label">OSC CHOP</span>
+              <span class="knob-label">CHOP</span>
             </div>
 
             <div class="knob-group highlight-s1">
@@ -195,34 +188,42 @@
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
-              <span class="knob-label">CHOP COMB</span>
+              <span class="knob-label">COMB</span>
             </div>
+          </div>
 
+          <!-- Bottom Sub Type Selector -->
+          <div class="sub-type-group bottom-selector">
+            <span class="sub-label">SUB TYPE</span>
+            <div class="btn-micro-row">
+              <button class="micro-btn active" data-sub-mode="sub1">-1 OCT</button>
+              <button class="micro-btn" data-sub-mode="sub2">-2 OCT</button>
+              <button class="micro-btn" data-sub-mode="subPulse">PULSE</button>
+            </div>
           </div>
         </div>
 
-        <!-- SECTION 2: FILTER & RESONANCE -->
+        <!-- SECTION 2: FILTER (3 x 2) -->
         <div class="synth-block" id="block-filter">
           <div class="block-header">
             <span class="block-title">FILTER</span>
-            <span class="block-subtitle">24dB S-1 RESONANT VCF</span>
           </div>
-          <div class="block-knob-grid">
-
-            <div class="knob-group knob-large-group">
-              <div class="rotary-knob knob-large" data-param="filterCutoff" data-min="20" data-max="20000" data-default="4500" data-step="1" data-curve="exp" data-label="CUTOFF">
+          <div class="block-knob-grid grid-3x2">
+            <!-- Row 1 -->
+            <div class="knob-group">
+              <div class="rotary-knob" data-param="filterCutoff" data-min="20" data-max="20000" data-default="4500" data-step="1" data-curve="exp" data-label="CUTOFF">
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
               <span class="knob-label">CUTOFF</span>
             </div>
 
-            <div class="knob-group knob-large-group">
-              <div class="rotary-knob knob-large" data-param="filterResonance" data-min="0" data-max="24" data-default="4" data-step="0.1" data-label="RESO">
+            <div class="knob-group">
+              <div class="rotary-knob" data-param="filterResonance" data-min="0" data-max="24" data-default="4" data-step="0.1" data-label="RESO">
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
-              <span class="knob-label">RESONANCE</span>
+              <span class="knob-label">RESO</span>
             </div>
 
             <div class="knob-group">
@@ -233,12 +234,13 @@
               <span class="knob-label">HPF</span>
             </div>
 
+            <!-- Row 2 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="filterEnvDepth" data-min="-1" data-max="1" data-default="0.5" data-step="0.01" data-label="ENV">
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
-              <span class="knob-label">ENV DEPTH</span>
+              <span class="knob-label">ENV</span>
             </div>
 
             <div class="knob-group">
@@ -246,7 +248,7 @@
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
-              <span class="knob-label">KEY FOLLOW</span>
+              <span class="knob-label">KYBD</span>
             </div>
 
             <div class="knob-group">
@@ -256,18 +258,18 @@
               </div>
               <span class="knob-label">DRIVE</span>
             </div>
-
           </div>
+          <!-- Spacer to guarantee identical bottom alignment -->
+          <div class="bottom-selector-spacer"></div>
         </div>
 
-        <!-- SECTION 3: ENVELOPE (ADSR) -->
+        <!-- SECTION 3: ENVELOPE (2 x 2) -->
         <div class="synth-block" id="block-env">
           <div class="block-header">
             <span class="block-title">ENVELOPE</span>
-            <span class="block-subtitle">SH-101 SNAPPY ADSR</span>
           </div>
-          <div class="block-knob-grid adsr-grid">
-
+          <div class="block-knob-grid grid-2x2">
+            <!-- Row 1 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="envAttack" data-min="0.001" data-max="3" data-default="0.005" data-step="0.001" data-curve="exp" data-label="A">
                 <div class="knob-ring"></div>
@@ -284,6 +286,7 @@
               <span class="knob-label">DECAY</span>
             </div>
 
+            <!-- Row 2 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="envSustain" data-min="0" data-max="1" data-default="0.2" data-step="0.01" data-label="S">
                 <div class="knob-ring"></div>
@@ -299,18 +302,18 @@
               </div>
               <span class="knob-label">RELEASE</span>
             </div>
-
           </div>
+          <!-- Spacer to guarantee identical bottom alignment -->
+          <div class="bottom-selector-spacer"></div>
         </div>
 
-        <!-- SECTION 4: LFO & MODULATION -->
+        <!-- SECTION 4: LFO & MODULATION (2 x 2) -->
         <div class="synth-block" id="block-lfo">
           <div class="block-header">
             <span class="block-title">LFO</span>
-            <span class="block-subtitle">MODULATION MATRIX</span>
           </div>
-          <div class="block-knob-grid">
-
+          <div class="block-knob-grid grid-2x2">
+            <!-- Row 1 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="lfoRate" data-min="0.1" data-max="30" data-default="3" data-step="0.1" data-label="RATE">
                 <div class="knob-ring"></div>
@@ -327,6 +330,7 @@
               <span class="knob-label">PITCH</span>
             </div>
 
+            <!-- Row 2 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="lfoFilterDepth" data-min="0" data-max="1" data-default="0" data-step="0.01" data-label="FILTER">
                 <div class="knob-ring"></div>
@@ -336,34 +340,33 @@
             </div>
 
             <div class="knob-group">
-              <div class="rotary-knob" data-param="lfoPwmDepth" data-min="0" data-max="1" data-default="0.25" data-step="0.01" data-label="PWM">
+              <div class="rotary-knob" data-param="lfoPwmDepth" data-min="0" data-max="1" data-default="0.4" data-step="0.01" data-label="PWM">
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
               <span class="knob-label">PWM</span>
             </div>
+          </div>
 
-            <div class="lfo-shape-group">
-              <span class="sub-label">WAVE</span>
-              <div class="btn-micro-row">
-                <button class="micro-btn active" data-lfo-wave="triangle">TRI</button>
-                <button class="micro-btn" data-lfo-wave="saw">SAW</button>
-                <button class="micro-btn" data-lfo-wave="square">SQR</button>
-                <button class="micro-btn" data-lfo-wave="sh">S&H</button>
-              </div>
+          <!-- Bottom Wave Selector -->
+          <div class="lfo-shape-group bottom-selector">
+            <span class="sub-label">WAVE</span>
+            <div class="btn-micro-row">
+              <button class="micro-btn active" data-lfo-wave="triangle">TRI</button>
+              <button class="micro-btn" data-lfo-wave="saw">SAW</button>
+              <button class="micro-btn" data-lfo-wave="square">SQR</button>
+              <button class="micro-btn" data-lfo-wave="sh">S&H</button>
             </div>
-
           </div>
         </div>
 
-        <!-- SECTION 5: ONBOARD EFFECTS (ROLAND JUNO CHORUS, DELAY, REVERB) -->
+        <!-- SECTION 5: ONBOARD EFFECTS (3 + 2 = 2 rows) -->
         <div class="synth-block" id="block-fx">
           <div class="block-header">
             <span class="block-title">EFFECTS</span>
-            <span class="block-subtitle">CHORUS / DELAY / REVERB</span>
           </div>
-          <div class="block-knob-grid">
-
+          <div class="block-knob-grid grid-3x2">
+            <!-- Row 1 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="fxChorusSend" data-min="0" data-max="1" data-default="0.4" data-step="0.01" data-label="CHORUS">
                 <div class="knob-ring"></div>
@@ -385,9 +388,10 @@
                 <div class="knob-ring"></div>
                 <div class="knob-dial"><div class="knob-pointer"></div></div>
               </div>
-              <span class="knob-label">DLY TIME</span>
+              <span class="knob-label">TIME</span>
             </div>
 
+            <!-- Row 2 -->
             <div class="knob-group">
               <div class="rotary-knob" data-param="fxDelayFeedback" data-min="0" data-max="0.9" data-default="0.4" data-step="0.01" data-label="FEEDBACK">
                 <div class="knob-ring"></div>
@@ -403,18 +407,17 @@
               </div>
               <span class="knob-label">REVERB</span>
             </div>
+          </div>
 
-            <!-- Chorus Mode Toggle -->
-            <div class="chorus-mode-group">
-              <span class="sub-label">CHORUS MODE</span>
-              <div class="btn-micro-row">
-                <button class="micro-btn" data-chorus-mode="off">OFF</button>
-                <button class="micro-btn active" data-chorus-mode="type1">I (JUNO)</button>
-                <button class="micro-btn" data-chorus-mode="type2">II (RICH)</button>
-                <button class="micro-btn" data-chorus-mode="type12">I+II</button>
-              </div>
+          <!-- Bottom Chorus Mode Selector -->
+          <div class="chorus-mode-group bottom-selector">
+            <span class="sub-label">CHORUS MODE</span>
+            <div class="btn-micro-row">
+              <button class="micro-btn" data-chorus-mode="off">OFF</button>
+              <button class="micro-btn active" data-chorus-mode="type1">I</button>
+              <button class="micro-btn" data-chorus-mode="type2">II</button>
+              <button class="micro-btn" data-chorus-mode="type12">I+II</button>
             </div>
-
           </div>
         </div>
 
@@ -446,7 +449,7 @@
 
         <!-- Page Selector for 64 Steps (1-16, 17-32, 33-48, 49-64) -->
         <div class="page-selector">
-          <span class="bar-title">PAGE (64 STEPS):</span>
+          <span class="bar-title">PAGE:</span>
           <div class="page-btn-group">
             <button class="page-btn active" data-page="0">1-16</button>
             <button class="page-btn" data-page="1">17-32</button>
@@ -455,7 +458,7 @@
           </div>
         </div>
 
-        <!-- Octave Shift & Edit Mode Controls -->
+        <!-- Octave Shift Controls -->
         <div class="octave-controls">
           <span class="bar-title">OCTAVE:</span>
           <button id="btn-oct-down" class="btn-step-nav" title="Octave Down">◀ OCT -</button>
@@ -463,181 +466,167 @@
           <button id="btn-oct-up" class="btn-step-nav" title="Octave Up">OCT + ▶</button>
         </div>
 
-        <!-- Step Edit Mode (Pitch / Velocity / Prob / Substep) -->
+        <!-- Step Edit Mode (SELECT, PROB, CLEAR) -->
         <div class="edit-mode-group">
-          <span class="bar-title">EDIT MODE:</span>
+          <span class="bar-title">EDIT:</span>
           <div class="btn-micro-row">
-            <button class="micro-btn active" data-step-edit-mode="gate">GATE</button>
-            <button class="micro-btn" data-step-edit-mode="pitch">NOTE</button>
+            <button class="micro-btn active" data-step-edit-mode="select">SELECT</button>
             <button class="micro-btn" data-step-edit-mode="prob">PROB</button>
-            <button class="micro-btn" data-step-edit-mode="ratchet">FLAM</button>
             <button id="btn-clear-pattern" class="micro-btn btn-danger" title="Clear Current Pattern">CLEAR</button>
           </div>
         </div>
       </section>
 
-      <!-- 16 TACTILE STEP KEYS / CHROMATIC KEYBOARD -->
-      <section class="step-keyboard-container" aria-label="16-Step Keyboard and Step Sequencer">
+      <!-- 16 STEP SELECT KEYS + 2/3-SIZE CHROMATIC NOTE KEYBOARD -->
+      <section class="step-keyboard-container" aria-label="16-Step Selector and Note Keyboard">
+        <!-- Step Select Row: click to select a step, then choose its notes below -->
+        <div class="step-select-keys" id="step-select-keys">
+          <button class="step-select-key" data-step-select="0" title="Select Step 1"><span class="step-select-led"></span><span class="step-select-num">1</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="1" title="Select Step 2"><span class="step-select-led"></span><span class="step-select-num">2</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="2" title="Select Step 3"><span class="step-select-led"></span><span class="step-select-num">3</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="3" title="Select Step 4"><span class="step-select-led"></span><span class="step-select-num">4</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="4" title="Select Step 5"><span class="step-select-led"></span><span class="step-select-num">5</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="5" title="Select Step 6"><span class="step-select-led"></span><span class="step-select-num">6</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="6" title="Select Step 7"><span class="step-select-led"></span><span class="step-select-num">7</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="7" title="Select Step 8"><span class="step-select-led"></span><span class="step-select-num">8</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="8" title="Select Step 9"><span class="step-select-led"></span><span class="step-select-num">9</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="9" title="Select Step 10"><span class="step-select-led"></span><span class="step-select-num">10</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="10" title="Select Step 11"><span class="step-select-led"></span><span class="step-select-num">11</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="11" title="Select Step 12"><span class="step-select-led"></span><span class="step-select-num">12</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="12" title="Select Step 13"><span class="step-select-led"></span><span class="step-select-num">13</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="13" title="Select Step 14"><span class="step-select-led"></span><span class="step-select-num">14</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="14" title="Select Step 15"><span class="step-select-led"></span><span class="step-select-num">15</span><span class="step-select-dot"></span></button>
+          <button class="step-select-key" data-step-select="15" title="Select Step 16"><span class="step-select-led"></span><span class="step-select-num">16</span><span class="step-select-dot"></span></button>
+        </div>
+
+        <!-- Note Keys: play live, and add/remove notes on the selected step -->
         <div class="step-keyboard-keys" id="step-keyboard-keys">
-          <!-- 16 Step Keys with dual function: Keyboard play & Step trigger -->
           <div class="step-key" data-step="0" data-note="60" data-keylabel="C4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">1</span>
               <span class="note-label">C</span>
               <span class="kb-shortcut">Z</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key accidental" data-step="1" data-note="61" data-keylabel="C#4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">2</span>
               <span class="note-label">C#</span>
               <span class="kb-shortcut">S</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key" data-step="2" data-note="62" data-keylabel="D4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">3</span>
               <span class="note-label">D</span>
               <span class="kb-shortcut">X</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key accidental" data-step="3" data-note="63" data-keylabel="D#4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">4</span>
               <span class="note-label">D#</span>
               <span class="kb-shortcut">D</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key" data-step="4" data-note="64" data-keylabel="E4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">5</span>
               <span class="note-label">E</span>
               <span class="kb-shortcut">C</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key" data-step="5" data-note="65" data-keylabel="F4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">6</span>
               <span class="note-label">F</span>
               <span class="kb-shortcut">V</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key accidental" data-step="6" data-note="66" data-keylabel="F#4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">7</span>
               <span class="note-label">F#</span>
               <span class="kb-shortcut">G</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key" data-step="7" data-note="67" data-keylabel="G4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">8</span>
               <span class="note-label">G</span>
               <span class="kb-shortcut">B</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key accidental" data-step="8" data-note="68" data-keylabel="G#4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">9</span>
               <span class="note-label">G#</span>
               <span class="kb-shortcut">H</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key" data-step="9" data-note="69" data-keylabel="A4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">10</span>
               <span class="note-label">A</span>
               <span class="kb-shortcut">N</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key accidental" data-step="10" data-note="70" data-keylabel="A#4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">11</span>
               <span class="note-label">A#</span>
               <span class="kb-shortcut">J</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key" data-step="11" data-note="71" data-keylabel="B4">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">12</span>
               <span class="note-label">B</span>
               <span class="kb-shortcut">M</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key" data-step="12" data-note="72" data-keylabel="C5">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">13</span>
               <span class="note-label">C5</span>
               <span class="kb-shortcut">,</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key accidental" data-step="13" data-note="73" data-keylabel="C#5">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">14</span>
               <span class="note-label">C#5</span>
               <span class="kb-shortcut">L</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key" data-step="14" data-note="74" data-keylabel="D5">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">15</span>
               <span class="note-label">D5</span>
               <span class="kb-shortcut">.</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
           <div class="step-key accidental" data-step="15" data-note="75" data-keylabel="D#5">
             <div class="step-led"></div>
             <div class="step-content">
-              <span class="step-num">16</span>
               <span class="note-label">D#5</span>
               <span class="kb-shortcut">;</span>
             </div>
-            <div class="step-subinfo-dot"></div>
           </div>
 
         </div>
@@ -645,7 +634,7 @@
 
       <!-- Bottom Status & Quick Help Footer -->
       <footer class="hardware-footer">
-        <div class="footer-item"><span class="key-hint">QWERTY Keyboard (Z-M / S-J)</span> Play Live</div>
+        <div class="footer-item"><span class="key-hint">QWERTY (Z-M / S-J)</span> Play Live</div>
         <div class="footer-item"><span class="key-hint">SPACEBAR</span> Play / Stop</div>
         <div class="footer-item"><span class="key-hint">SHIFT + Drag Knob</span> Fine Tuning</div>
         <div class="footer-item"><span class="key-hint">Double Click Knob</span> Reset Value</div>

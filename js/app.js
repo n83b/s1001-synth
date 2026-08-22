@@ -3,7 +3,6 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Audio Engine & Sequencer
   const audioEngine = new S1AudioEngine();
   const sequencer = new S1Sequencer(audioEngine);
   const uiController = new S1UIController(audioEngine, sequencer);
@@ -22,23 +21,33 @@ document.addEventListener('DOMContentLoaded', () => {
     'n': 9,  // A
     'j': 10, // A#
     'm': 11, // B
-    ',': 12, // C+1
-    'l': 13, // C#+1
-    '.': 14, // D+1
-    ';': 15  // D#+1
+    ',': 12, // C5
+    'l': 13, // C#5
+    '.': 14, // D5
+    ';': 15  // D#5
   };
 
   const activeComputerKeys = new Map();
 
+  // Bulletproof Safari & Chrome gesture unlock
+  const unlockEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'];
+  const unlockAudio = () => {
+    audioEngine.ensureAudioContext();
+  };
+  unlockEvents.forEach(evt => {
+    window.addEventListener(evt, unlockAudio, { passive: true });
+  });
+
   window.addEventListener('keydown', (e) => {
-    // Prevent default scrolling for Space
+    audioEngine.ensureAudioContext();
+
+    // Prevent default scrolling for Spacebar
     if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
       e.preventDefault();
       sequencer.togglePlay();
       return;
     }
 
-    // Ignore if typing in text inputs
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
       return;
     }
@@ -51,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
       audioEngine.triggerNoteOn(midiNote, 0.9);
       activeComputerKeys.set(key, midiNote);
 
-      // Visual highlight on corresponding step key
       const stepKey = document.querySelector(`.step-key[data-step="${noteOffset}"]`);
       if (stepKey) stepKey.classList.add('key-pressed');
     }
@@ -70,16 +78,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Global first-gesture audio unlock
-  const unlockAudio = () => {
-    if (audioEngine.ctx && audioEngine.ctx.state === 'suspended') {
-      audioEngine.ctx.resume();
-    }
-    window.removeEventListener('click', unlockAudio);
-    window.removeEventListener('keydown', unlockAudio);
-  };
-  window.addEventListener('click', unlockAudio);
-  window.addEventListener('keydown', unlockAudio);
-
-  console.log('Roland AIRA Compact S-1 Tweak Synth Groovebox Ready!');
+  console.log('Roland AIRA Compact S-1 Synth ready!');
 });

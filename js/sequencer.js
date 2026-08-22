@@ -21,13 +21,20 @@ class S1Sequencer {
 
     // Step Loop Boundaries
     this.stepLoopStart = 0;
-    this.stepLoopLength = 4; // 4 steps default loop
+    this.stepLoopLength = 4;
+
+    // Page Loop State (double-tap page button to loop that 16-step page)
+    this.isPageLoop = false;
+    this.pageLoopIndex = 0;
 
     // 64 Steps Data Storage
     this.steps = [];
     this.initSteps();
 
-    // Motion Automation Lanes (Record parameter changes per step)
+    // Currently selected step for note editing (global index 0-63, or null)
+    this.selectedStep = null;
+
+    // Motion Automation Lanes
     this.motionData = {
       filterCutoff: new Float32Array(64).fill(-1),
       filterResonance: new Float32Array(64).fill(-1),
@@ -39,17 +46,17 @@ class S1Sequencer {
     // Arpeggiator state
     this.arpHeldNotes = [];
     this.arpIndex = 0;
-    this.arpMode = 'up'; // up, down, updown, random, chord
-    this.arpRate = 0.25; // 1/16th
+    this.arpMode = 'up';
+    this.arpRate = 0.25;
 
     // Lookahead Clock Scheduler
-    this.lookaheadMs = 25.0; // Interval for scheduler tick
-    this.scheduleAheadTime = 0.1; // Schedule audio 100ms in advance
+    this.lookaheadMs = 25.0;
+    this.scheduleAheadTime = 0.1;
     this.nextStepTime = 0.0;
     this.timerId = null;
 
-    // Step Edit Mode: 'gate', 'pitch', 'prob', 'ratchet'
-    this.editMode = 'gate';
+    // Step Edit Mode: 'select', 'gate', 'prob'
+    this.editMode = 'select';
 
     // Callbacks for UI updates
     this.onStepTick = null;
@@ -60,12 +67,35 @@ class S1Sequencer {
     this.steps = [];
     for (let i = 0; i < this.totalSteps; i++) {
       this.steps.push({
-        gate: false,
-        note: 60, // C4
+        notes: new Set(), // MIDI note numbers that fire on this step
         velocity: 0.9,
-        probability: 1.0, // 100%
-        substep: 1 // 1=single, 2=flam, 3=triplet, 4=quad
+        probability: 1.0,
+        gateLength: 1, // 1 to 16 step gate length
+        substep: 1
       });
+    }
+  }
+
+  // =========================================================================
+  // PAGE LOOP TOGGLE
+  // =========================================================================
+  togglePageLoop(pageIndex) {
+    const targetPage = (pageIndex !== undefined) ? pageIndex : this.currentPage;
+    if (this.isPageLoop && this.pageLoopIndex === targetPage) {
+      this.isPageLoop = false;
+      return false;
+    } else {
+      this.isPageLoop = true;
+      this.pageLoopIndex = targetPage;
+      this.currentPage = targetPage;
+      if (this.isPlaying) {
+        const pageStart = this.pageLoopIndex * 16;
+        const pageEnd = pageStart + 16;
+        if (this.currentStep < pageStart || this.currentStep >= pageEnd) {
+          this.currentStep = pageStart;
+        }
+      }
+      return true;
     }
   }
 
@@ -74,12 +104,19 @@ class S1Sequencer {
   // =========================================================================
   start() {
     if (this.isPlaying) return;
-    this.engine.init();
+    this.engine.ensureAudioContext();
 
     this.isPlaying = true;
-    this.currentStep = this.isStepLoop ? this.stepLoopStart : (this.currentPage * 16);
-    this.nextStepTime = this.engine.ctx.currentTime + 0.05;
+    if (this.isStepLoop) {
+      this.currentStep = this.stepLoopStart;
+    } else if (this.isPageLoop) {
+      this.currentStep = this.pageLoopIndex * 16;
+    } else {
+      this.currentStep = this.currentPage * 16;
+    }
+    this.nextStepTime = (this.engine.ctx ? this.engine.ctx.currentTime : 0) + 0.05;
 
+    if (this.timerId) clearInterval(this.timerId);
     this.timerId = setInterval(() => this.scheduler(), this.lookaheadMs);
 
     if (this.onPlayChange) this.onPlayChange(true);
@@ -111,72 +148,84 @@ class S1Sequencer {
   }
 
   advanceStep() {
-    const secondsPerBeat = 60.0 / this.engine.params.tempo;
+    const tempo = Math.max(30, Math.min(300, this.engine.params.tempo || 120));
+    const secondsPerBeat = 60.0 / tempo;
     const stepDuration = secondsPerBeat * 0.25; // 16th note
     this.nextStepTime += stepDuration;
 
     if (this.isStepLoop) {
-      // Loop within sliced step window
       const loopEnd = this.stepLoopStart + this.stepLoopLength;
       this.currentStep++;
       if (this.currentStep >= loopEnd || this.currentStep >= this.totalSteps) {
         this.currentStep = this.stepLoopStart;
       }
+    } else if (this.isPageLoop) {
+      const pageStart = this.pageLoopIndex * 16;
+      const pageEnd = pageStart + 16;
+      this.currentStep++;
+      if (this.currentStep < pageStart || this.currentStep >= pageEnd) {
+        this.currentStep = pageStart;
+      }
     } else {
-      // Normal 64-step progression
       this.currentStep = (this.currentStep + 1) % this.totalSteps;
     }
   }
 
   scheduleStep(stepIdx, time) {
     const step = this.steps[stepIdx];
-    const secondsPerBeat = 60.0 / this.engine.params.tempo;
+    if (!step) return;
+
+    const tempo = Math.max(30, Math.min(300, this.engine.params.tempo || 120));
+    const secondsPerBeat = 60.0 / tempo;
     const stepDuration = secondsPerBeat * 0.25;
 
-    // Apply Motion Automation if recorded
+    // Apply Motion Automation
     this.applyMotion(stepIdx, time);
 
     // Notify UI (highlight chase LED and step)
     const pageOfStep = Math.floor(stepIdx / 16);
     const localStepIdx = stepIdx % 16;
+    const delayMs = Math.max(0, (time - (this.engine.ctx ? this.engine.ctx.currentTime : 0)) * 1000);
 
     setTimeout(() => {
-      if (this.onStepTick) {
-        this.onStepTick(stepIdx, localStepIdx, pageOfStep, step.gate);
+      if (this.onStepTick && this.isPlaying) {
+        this.onStepTick(stepIdx, localStepIdx, pageOfStep, step.notes.size > 0);
       }
-    }, Math.max(0, (time - this.engine.ctx.currentTime) * 1000));
+    }, delayMs);
 
-    // Handle Arpeggiator if active
+    // Handle Arpeggiator
     if (this.isArpActive && this.arpHeldNotes.length > 0) {
       this.scheduleArpStep(time, stepDuration);
       return;
     }
 
     // Step Playback Gate & Probability Check
-    if (!step.gate) return;
+    if (step.notes.size === 0) return;
     if (step.probability < 1.0 && Math.random() > step.probability) {
-      return; // Skip step on failed probability roll
+      return;
     }
 
-    const note = step.note;
-    const velocity = step.velocity;
-    const sub = step.substep;
+    const notes = Array.from(step.notes);
+    const velocity = step.velocity || 0.9;
+    const sub = step.substep || 1;
+    const gateLen = Math.max(1, Math.min(16, step.gateLength || 1));
 
     if (sub === 1) {
-      // Standard Single Note Trigger
-      this.triggerScheduledNote(note, velocity, time, stepDuration * 0.85);
+      const noteDuration = (stepDuration * gateLen) * 0.85;
+      notes.forEach(note => this.triggerScheduledNote(note, velocity, time, noteDuration));
     } else {
-      // Flam / Ratchet / Substep Triggers
-      const subDuration = stepDuration / sub;
+      const subDuration = (stepDuration * gateLen) / sub;
       for (let s = 0; s < sub; s++) {
-        const subTime = time + (s * subDuration);
-        this.triggerScheduledNote(note, velocity * (s === 0 ? 1.0 : 0.8), subTime, subDuration * 0.75);
+        const subTime = time + (s * (stepDuration / sub));
+        const subVelocity = velocity * (s === 0 ? 1.0 : 0.8);
+        notes.forEach(note => this.triggerScheduledNote(note, subVelocity, subTime, subDuration * 0.75));
       }
     }
   }
 
   triggerScheduledNote(note, velocity, time, duration) {
     const ctx = this.engine.ctx;
+    if (!ctx) return;
     const delayFromNow = Math.max(0, time - ctx.currentTime);
 
     setTimeout(() => {
@@ -248,42 +297,85 @@ class S1Sequencer {
   // =========================================================================
   // STEP EDITING & PATTERN MODIFICATIONS
   // =========================================================================
-  toggleStep(localIndex, currentOctaveNote = 60) {
+  // Pressing a STEP SELECT key. In 'select' mode this selects the step for
+  // note editing; in 'prob'/'ratchet' mode it cycles that step's property.
+  handleStepSelectPress(localIndex) {
     const stepIdx = (this.currentPage * 16) + localIndex;
     const step = this.steps[stepIdx];
+    if (!step) return null;
 
-    if (this.editMode === 'gate') {
-      step.gate = !step.gate;
-      if (step.gate) {
-        step.note = currentOctaveNote;
+    let changed = false;
+
+    if (this.editMode === 'prob') {
+      if (this.selectedStep === stepIdx) {
+        // Step is already selected: cycle probability
+        if (step.probability === 1.0) step.probability = 0.75;
+        else if (step.probability === 0.75) step.probability = 0.50;
+        else if (step.probability === 0.50) step.probability = 0.25;
+        else step.probability = 1.0;
+        changed = true;
+      } else {
+        // First click: select and inspect without modifying
+        this.selectedStep = stepIdx;
+        changed = false;
       }
-    } else if (this.editMode === 'pitch') {
-      step.note = currentOctaveNote;
-      step.gate = true;
-    } else if (this.editMode === 'prob') {
-      // Cycle probabilities: 1.0 -> 0.75 -> 0.5 -> 0.25 -> 1.0
-      if (step.probability === 1.0) step.probability = 0.75;
-      else if (step.probability === 0.75) step.probability = 0.50;
-      else if (step.probability === 0.50) step.probability = 0.25;
-      else step.probability = 1.0;
-    } else if (this.editMode === 'ratchet') {
-      // Cycle flam/ratchet sub-steps: 1 -> 2 (flam) -> 3 (triplet) -> 4 (quad) -> 1
-      step.substep = (step.substep % 4) + 1;
+    } else {
+      // Default SELECT mode: first click selects the step, repeated clicks cycle gate length up to the end of the page
+      if (this.selectedStep === stepIdx) {
+        const localPos = stepIdx % 16;
+        const maxGate = 16 - localPos;
+        const curGate = step.gateLength || 1;
+        step.gateLength = (curGate >= maxGate) ? 1 : (curGate + 1);
+        changed = true;
+      } else {
+        this.selectedStep = stepIdx;
+        changed = false;
+      }
     }
 
+    return { stepIdx, step, selectedStep: this.selectedStep, changed };
+  }
+
+  // Pressing a NOTE key while a step is selected adds/removes that note
+  // from the selected step's chord. No-op if no step is selected.
+  toggleNoteOnSelectedStep(midiNote) {
+    if (this.selectedStep === null) return null;
+    const step = this.steps[this.selectedStep];
+    if (!step) return null;
+
+    if (step.notes.has(midiNote)) {
+      step.notes.delete(midiNote);
+    } else {
+      step.notes.add(midiNote);
+    }
     return step;
   }
 
   clearPattern() {
     this.initSteps();
     this.clearMotion();
+    this.selectedStep = null;
   }
 
   loadPattern(patternData) {
     if (!patternData) return;
     if (patternData.steps) {
       for (let i = 0; i < Math.min(patternData.steps.length, this.totalSteps); i++) {
-        this.steps[i] = { ...this.steps[i], ...patternData.steps[i] };
+        const src = patternData.steps[i];
+        const notes = new Set();
+        if (src.notes) {
+          (Array.isArray(src.notes) ? src.notes : Array.from(src.notes)).forEach(n => notes.add(n));
+        } else if (src.gate && src.note !== undefined) {
+          // Legacy single-note-per-step preset format
+          notes.add(src.note);
+        }
+        this.steps[i] = {
+          notes,
+          velocity: src.velocity !== undefined ? src.velocity : this.steps[i].velocity,
+          probability: src.probability !== undefined ? src.probability : this.steps[i].probability,
+          gateLength: src.gateLength !== undefined ? src.gateLength : (src.length || 1),
+          substep: src.substep !== undefined ? src.substep : this.steps[i].substep
+        };
       }
     }
     if (patternData.motion) {

@@ -11,7 +11,7 @@ class S1UIController {
     this.currentOctave = 4; // MIDI note 60 = C4
     this.displayTimeout = null;
 
-    // Active playing notes (for keyboard & step keys)
+    // Active playing notes
     this.pressedKeys = new Set();
 
     // DOM Elements
@@ -41,13 +41,14 @@ class S1UIController {
   // 7-SEGMENT LED DISPLAY FORMATTER
   // =========================================================================
   setDisplay(text, subtext = '') {
+    if (!this.seg1 || !this.seg2 || !this.seg3 || !this.seg4) return;
     const chars = (text + '    ').substring(0, 4).toUpperCase();
     this.seg1.textContent = chars[0];
     this.seg2.textContent = chars[1];
     this.seg3.textContent = chars[2];
     this.seg4.textContent = chars[3];
 
-    if (subtext) {
+    if (subtext && this.subInfo) {
       this.subInfo.textContent = subtext.toUpperCase();
     }
 
@@ -57,7 +58,9 @@ class S1UIController {
       this.seg2.textContent = '-';
       this.seg3.textContent = '0';
       this.seg4.textContent = '1';
-      this.subInfo.textContent = `READY • TEMPO ${this.engine.params.tempo}`;
+      if (this.subInfo) {
+        this.subInfo.textContent = `READY • TEMPO ${this.engine.params.tempo}`;
+      }
     }, 2500);
   }
 
@@ -75,7 +78,6 @@ class S1UIController {
       const isExp = knob.dataset.curve === 'exp';
       const label = knob.dataset.label || paramName;
 
-      // Set initial visual position
       const initialVal = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
       this.updateKnobVisual(knob, initialVal, min, max, isExp);
 
@@ -84,6 +86,7 @@ class S1UIController {
       let isDragging = false;
 
       const onPointerDown = (e) => {
+        this.engine.ensureAudioContext();
         isDragging = true;
         startY = e.clientY || (e.touches && e.touches[0].clientY);
         startVal = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
@@ -91,7 +94,6 @@ class S1UIController {
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
         window.addEventListener('pointercancel', onPointerUp);
-        e.preventDefault();
       };
 
       const onPointerMove = (e) => {
@@ -116,17 +118,14 @@ class S1UIController {
           newVal = min + normVal * (max - min);
         }
 
-        // Quantize step if integer
         if (knob.dataset.step && parseFloat(knob.dataset.step) >= 1) {
           newVal = Math.round(newVal);
         }
 
-        // Apply parameter to engine & sequencer motion
         this.engine.setParam(paramName, newVal);
         this.seq.recordMotion(paramName, newVal);
         this.updateKnobVisual(knob, newVal, min, max, isExp);
 
-        // Update 7-Segment Screen
         let displayStr = '';
         if (newVal >= 1000) displayStr = (newVal / 1000).toFixed(1) + 'K';
         else if (newVal >= 100) displayStr = Math.round(newVal).toString();
@@ -146,8 +145,8 @@ class S1UIController {
 
       knob.addEventListener('pointerdown', onPointerDown);
 
-      // Wheel support
       knob.addEventListener('wheel', (e) => {
+        this.engine.ensureAudioContext();
         e.preventDefault();
         const cur = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
         const step = (max - min) * 0.025 * (e.deltaY < 0 ? 1 : -1);
@@ -158,8 +157,8 @@ class S1UIController {
         this.setDisplay(newVal.toFixed(1), `${label}: ${newVal.toFixed(2)}`);
       }, { passive: false });
 
-      // Double-click to reset to default
       knob.addEventListener('dblclick', () => {
+        this.engine.ensureAudioContext();
         this.engine.setParam(paramName, def);
         this.updateKnobVisual(knob, def, min, max, isExp);
         this.setDisplay('dEF', `${label} RESET`);
@@ -185,10 +184,10 @@ class S1UIController {
   // BUTTON TOGGLES & MODE SELECTORS
   // =========================================================================
   initModeButtons() {
-    // Voice Mode buttons
     const modeBtns = document.querySelectorAll('[data-voice-mode]');
     modeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
+        this.engine.ensureAudioContext();
         modeBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const mode = btn.dataset.voiceMode;
@@ -197,10 +196,10 @@ class S1UIController {
       });
     });
 
-    // Sub Type buttons
     const subBtns = document.querySelectorAll('[data-sub-mode]');
     subBtns.forEach(btn => {
       btn.addEventListener('click', () => {
+        this.engine.ensureAudioContext();
         subBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const mode = btn.dataset.subMode;
@@ -209,10 +208,10 @@ class S1UIController {
       });
     });
 
-    // LFO Wave buttons
     const lfoBtns = document.querySelectorAll('[data-lfo-wave]');
     lfoBtns.forEach(btn => {
       btn.addEventListener('click', () => {
+        this.engine.ensureAudioContext();
         lfoBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const wave = btn.dataset.lfoWave;
@@ -221,10 +220,10 @@ class S1UIController {
       });
     });
 
-    // Chorus Mode buttons
     const chorusBtns = document.querySelectorAll('[data-chorus-mode]');
     chorusBtns.forEach(btn => {
       btn.addEventListener('click', () => {
+        this.engine.ensureAudioContext();
         chorusBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const mode = btn.dataset.chorusMode;
@@ -233,8 +232,8 @@ class S1UIController {
       });
     });
 
-    // Preset Selector Dropdown
-    if (window.S1_PRESETS) {
+    if (window.S1_PRESETS && this.presetSelect) {
+      this.presetSelect.innerHTML = '';
       window.S1_PRESETS.forEach((preset, idx) => {
         const opt = document.createElement('option');
         opt.value = idx;
@@ -243,25 +242,25 @@ class S1UIController {
       });
 
       this.presetSelect.addEventListener('change', (e) => {
+        this.engine.ensureAudioContext();
         this.loadPresetIndex(parseInt(e.target.value, 10));
       });
 
-      // Load initial preset 0
       this.loadPresetIndex(0);
     }
 
-    // Randomize Button
     const btnRand = document.getElementById('btn-rand-pattern');
     if (btnRand) {
       btnRand.addEventListener('click', () => {
+        this.engine.ensureAudioContext();
         this.randomizePatternAndSound();
       });
     }
 
-    // Power Toggle
     const btnPower = document.getElementById('btn-power');
     if (btnPower) {
       btnPower.addEventListener('click', () => {
+        this.engine.ensureAudioContext();
         this.engine.isMuted = !this.engine.isMuted;
         btnPower.classList.toggle('active', !this.engine.isMuted);
         this.setDisplay(this.engine.isMuted ? 'MUtE' : 'POWr', this.engine.isMuted ? 'AUDIO MUTED' : 'AUDIO ACTIVE');
@@ -273,7 +272,6 @@ class S1UIController {
     const preset = window.S1_PRESETS[idx];
     if (!preset) return;
 
-    // Apply Sound parameters
     for (const [key, val] of Object.entries(preset.params)) {
       this.engine.setParam(key, val);
       const knob = document.querySelector(`.rotary-knob[data-param="${key}"]`);
@@ -285,33 +283,35 @@ class S1UIController {
       }
     }
 
-    // Update tempo
     if (preset.tempo) {
       this.engine.setParam('tempo', preset.tempo);
       const tempoKnob = document.getElementById('knob-tempo');
       if (tempoKnob) this.updateKnobVisual(tempoKnob, preset.tempo, 40, 240, false);
     }
 
-    // Load Sequencer Pattern
     if (preset.pattern) {
       this.seq.loadPattern(preset.pattern);
-      this.updateStepKeysUI();
+      this.updateStepSelectKeysUI();
+      this.updateNoteKeysHighlight();
+      this.updatePageButtonsUI();
     }
 
     this.setDisplay(`P-${(idx + 1).toString().padStart(2, '0')}`, preset.name);
   }
 
   randomizePatternAndSound() {
-    // Randomize scale notes (Pentatonic minor)
     const scale = [48, 51, 53, 55, 58, 60, 63, 65, 67, 70, 72];
     for (let i = 0; i < 16; i++) {
       const step = this.seq.steps[i];
-      step.gate = Math.random() > 0.35;
-      step.note = scale[Math.floor(Math.random() * scale.length)];
+      step.notes = new Set();
+      if (Math.random() > 0.35) {
+        step.notes.add(scale[Math.floor(Math.random() * scale.length)]);
+      }
       step.substep = Math.random() > 0.8 ? 2 : 1;
       step.probability = Math.random() > 0.85 ? 0.75 : 1.0;
     }
-    this.updateStepKeysUI();
+    this.updateStepSelectKeysUI();
+    this.updateNoteKeysHighlight();
     this.setDisplay('rAnd', 'PATTERN RANDOMIZED');
   }
 
@@ -325,16 +325,19 @@ class S1UIController {
     const btnArp = document.getElementById('btn-arp');
 
     btnPlay.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       this.seq.togglePlay();
     });
 
     btnRec.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       this.seq.isRecordingMotion = !this.seq.isRecordingMotion;
       btnRec.classList.toggle('active', this.seq.isRecordingMotion);
       this.setDisplay(this.seq.isRecordingMotion ? 'rEC.' : 'OFF', 'MOTION RECORDING');
     });
 
     btnStepLoop.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       this.seq.isStepLoop = !this.seq.isStepLoop;
       btnStepLoop.classList.toggle('active', this.seq.isStepLoop);
       this.seq.stepLoopStart = this.seq.currentPage * 16;
@@ -342,65 +345,133 @@ class S1UIController {
     });
 
     btnArp.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       this.seq.isArpActive = !this.seq.isArpActive;
       btnArp.classList.toggle('active', this.seq.isArpActive);
       this.setDisplay(this.seq.isArpActive ? 'ArP.' : 'OFF', 'ARPEGGIATOR');
     });
 
-    // Page Buttons (1-16, 17-32, 33-48, 49-64)
     const pageBtns = document.querySelectorAll('.page-btn');
+    let lastTapTimes = new Map();
+    let tapTimeouts = new Map();
+
     pageBtns.forEach(btn => {
+      const pageIdx = parseInt(btn.dataset.page, 10);
+
       btn.addEventListener('click', () => {
-        pageBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.seq.currentPage = parseInt(btn.dataset.page, 10);
-        this.updateStepKeysUI();
-        this.setDisplay(`PG ${this.seq.currentPage + 1}`, `PAGE ${this.seq.currentPage + 1} (STEPS ${this.seq.currentPage * 16 + 1}-${(this.seq.currentPage + 1) * 16})`);
+        this.engine.ensureAudioContext();
+        const now = Date.now();
+        const lastTap = lastTapTimes.get(pageIdx) || 0;
+        const isDoubleTap = (now - lastTap < 350);
+        lastTapTimes.set(pageIdx, now);
+
+        if (isDoubleTap) {
+          // Double-tap detected: cancel pending single-tap action
+          const pending = tapTimeouts.get(pageIdx);
+          if (pending) {
+            clearTimeout(pending);
+            tapTimeouts.delete(pageIdx);
+          }
+
+          // Toggle page loop
+          const isLooping = this.seq.togglePageLoop(pageIdx);
+          this.seq.currentPage = pageIdx;
+          this.seq.selectedStep = null;
+          this.updatePageButtonsUI();
+          this.updateStepSelectKeysUI();
+          this.updateNoteKeysHighlight();
+
+          const pageNum = pageIdx + 1;
+          const startStep = pageIdx * 16 + 1;
+          const endStep = (pageIdx + 1) * 16;
+          if (isLooping) {
+            this.setDisplay(`LP0${pageNum}`, `PAGE ${pageNum} LOOP ACTIVE (STEPS ${startStep}-${endStep})`);
+          } else {
+            this.setDisplay(`PG ${pageNum}`, `PAGE ${pageNum} (STEPS ${startStep}-${endStep}) • LOOP OFF`);
+          }
+        } else {
+          // Single-tap: wait briefly to distinguish from double-tap
+          const timeout = setTimeout(() => {
+            tapTimeouts.delete(pageIdx);
+
+            if (this.seq.isPageLoop) {
+              this.seq.pageLoopIndex = pageIdx;
+            }
+            this.seq.currentPage = pageIdx;
+            this.seq.selectedStep = null;
+            this.updatePageButtonsUI();
+            this.updateStepSelectKeysUI();
+            this.updateNoteKeysHighlight();
+
+            const pageNum = pageIdx + 1;
+            const startStep = pageIdx * 16 + 1;
+            const endStep = (pageIdx + 1) * 16;
+            if (this.seq.isPageLoop) {
+              this.setDisplay(`LP0${pageNum}`, `PAGE ${pageNum} LOOPING (STEPS ${startStep}-${endStep})`);
+            } else {
+              this.setDisplay(`PG ${pageNum}`, `PAGE ${pageNum} (STEPS ${startStep}-${endStep})`);
+            }
+          }, 220);
+
+          tapTimeouts.set(pageIdx, timeout);
+        }
       });
     });
 
-    // Octave Shift
     const btnOctDown = document.getElementById('btn-oct-down');
     const btnOctUp = document.getElementById('btn-oct-up');
 
     btnOctDown.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       if (this.currentOctave > 1) {
         this.currentOctave--;
         this.octaveDisplay.textContent = `OCT ${this.currentOctave}`;
         this.setDisplay(`OC ${this.currentOctave}`, `OCTAVE ${this.currentOctave}`);
+        this.updateNoteKeysHighlight();
       }
     });
 
     btnOctUp.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       if (this.currentOctave < 7) {
         this.currentOctave++;
         this.octaveDisplay.textContent = `OCT ${this.currentOctave}`;
         this.setDisplay(`OC ${this.currentOctave}`, `OCTAVE ${this.currentOctave}`);
+        this.updateNoteKeysHighlight();
       }
     });
 
-    // Step Edit Mode (GATE, NOTE, PROB, FLAM)
     const editModeBtns = document.querySelectorAll('[data-step-edit-mode]');
     editModeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
+        this.engine.ensureAudioContext();
         editModeBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.seq.editMode = btn.dataset.stepEditMode;
-        this.setDisplay(this.seq.editMode.substring(0, 4).toUpperCase(), `EDIT MODE: ${this.seq.editMode.toUpperCase()}`);
+        this.seq.selectedStep = null;
+        this.updateStepSelectKeysUI();
+        this.updateNoteKeysHighlight();
+        if (this.seq.editMode === 'prob') {
+          this.setDisplay('PrOb', 'EDIT: PROBABILITY (CLICK A STEP TO VIEW/SET %)');
+        } else {
+          this.setDisplay(this.seq.editMode.substring(0, 4).toUpperCase(), `EDIT MODE: ${this.seq.editMode.toUpperCase()}`);
+        }
       });
     });
 
-    // Clear Pattern
     const btnClear = document.getElementById('btn-clear-pattern');
     btnClear.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       this.seq.clearPattern();
-      this.updateStepKeysUI();
+      this.updateStepSelectKeysUI();
+      this.updateNoteKeysHighlight();
+      this.updatePageButtonsUI();
       this.setDisplay('CLr', 'PATTERN CLEARED');
     });
 
-    // Sequencer tick callback -> LED chase & step highlight
     this.seq.onStepTick = (stepIdx, localIdx, pageOfStep, isTriggered) => {
-      const keys = document.querySelectorAll('.step-key');
+      if (!this.seq.isPlaying) return;
+      const keys = document.querySelectorAll('.step-select-key');
       keys.forEach(k => k.classList.remove('current-chase'));
 
       if (pageOfStep === this.seq.currentPage) {
@@ -415,6 +486,13 @@ class S1UIController {
       btnPlay.classList.toggle('active', isPlaying);
       btnPlay.querySelector('.btn-label').textContent = isPlaying ? '■ STOP' : '▶ PLAY';
       this.setDisplay(isPlaying ? 'PLAY' : 'StOP', isPlaying ? 'SEQUENCER RUNNING' : 'SEQUENCER STOPPED');
+
+      if (!isPlaying) {
+        const selectKeys = document.querySelectorAll('.step-select-key');
+        selectKeys.forEach(k => k.classList.remove('current-chase'));
+        const noteKeys = document.querySelectorAll('.step-key');
+        noteKeys.forEach(k => k.classList.remove('current-chase'));
+      }
     };
   }
 
@@ -422,13 +500,14 @@ class S1UIController {
   // 16 TACTILE STEP KEYS & KEYBOARD
   // =========================================================================
   initStepKeys() {
-    const keys = document.querySelectorAll('.step-key');
+    const noteKeys = document.querySelectorAll('.step-key');
+    const selectKeys = document.querySelectorAll('.step-select-key');
 
-    keys.forEach(key => {
-      const localIdx = parseInt(key.dataset.step, 10);
-      const noteOffset = parseInt(key.dataset.note, 10) - 60; // Relative to C4
+    noteKeys.forEach(key => {
+      const noteOffset = parseInt(key.dataset.note, 10) - 60;
 
       const playNote = () => {
+        this.engine.ensureAudioContext();
         const midiNote = (this.currentOctave * 12) + noteOffset;
         this.engine.triggerNoteOn(midiNote, 0.9);
         key.classList.add('key-pressed');
@@ -444,12 +523,15 @@ class S1UIController {
         if (this.seq.isArpActive) this.seq.setArpHeldNotes(Array.from(this.pressedKeys));
       };
 
-      key.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
+      key.addEventListener('pointerdown', () => {
+        this.engine.ensureAudioContext();
         playNote();
-        const currentOctaveNote = (this.currentOctave * 12) + noteOffset;
-        const step = this.seq.toggleStep(localIdx, currentOctaveNote);
-        this.updateSingleStepKeyUI(key, step);
+        const midiNote = (this.currentOctave * 12) + noteOffset;
+        const step = this.seq.toggleNoteOnSelectedStep(midiNote);
+        if (step) {
+          this.updateNoteKeysHighlight();
+          this.updateStepSelectKeysUI();
+        }
       });
 
       key.addEventListener('pointerup', releaseNote);
@@ -457,46 +539,105 @@ class S1UIController {
       key.addEventListener('pointercancel', releaseNote);
     });
 
-    this.updateStepKeysUI();
+    selectKeys.forEach(key => {
+      const localIdx = parseInt(key.dataset.stepSelect, 10);
+
+      key.addEventListener('pointerdown', () => {
+        this.engine.ensureAudioContext();
+        const res = this.seq.handleStepSelectPress(localIdx);
+        this.updateStepSelectKeysUI();
+        this.updateNoteKeysHighlight();
+
+        const stepNum = (localIdx + 1).toString().padStart(2, '0');
+        if (this.seq.editMode === 'select') {
+          const isSelected = this.seq.selectedStep === (this.seq.currentPage * 16) + localIdx;
+          const gateLen = res && res.step ? (res.step.gateLength || 1) : 1;
+          if (res && res.changed) {
+            // Gate incremented on repeated tap
+            const dispGate = `G-${gateLen.toString().padStart(2, '0')}`;
+            this.setDisplay(dispGate, `STEP ${stepNum} GATE LENGTH: ${gateLen} ${gateLen === 1 ? 'STEP' : 'STEPS'}`);
+          } else if (isSelected) {
+            if (gateLen > 1) {
+              const dispGate = `G-${gateLen.toString().padStart(2, '0')}`;
+              this.setDisplay(dispGate, `STEP ${stepNum} SELECTED (GATE: ${gateLen} STEPS)`);
+            } else {
+              this.setDisplay(`SL${stepNum}`, `STEP ${stepNum} SELECTED`);
+            }
+          } else {
+            this.setDisplay('----', 'STEP DESELECTED');
+          }
+        } else if (this.seq.editMode === 'prob') {
+          const pct = res && res.step ? Math.round(res.step.probability * 100) : 100;
+          const dispPct = pct === 100 ? '100%' : `${pct}%`.padStart(4, ' ');
+          this.setDisplay(dispPct, `STEP ${stepNum} PROBABILITY: ${pct}%`);
+        }
+      });
+    });
+
+    this.updateStepSelectKeysUI();
+    this.updateNoteKeysHighlight();
   }
 
-  updateSingleStepKeyUI(keyElement, step) {
-    keyElement.classList.toggle('active-step', step.gate);
-    keyElement.classList.toggle('has-prob', step.probability < 1.0);
-    keyElement.classList.toggle('has-ratchet', step.substep > 1);
-  }
-
-  updateStepKeysUI() {
-    const keys = document.querySelectorAll('.step-key');
+  updateStepSelectKeysUI() {
+    const keys = document.querySelectorAll('.step-select-key');
     const startIdx = this.seq.currentPage * 16;
+    const selectedStep = this.seq.selectedStep;
+    const selStepObj = (selectedStep !== null) ? this.seq.steps[selectedStep] : null;
+    const gateLen = (selStepObj && selStepObj.gateLength) ? selStepObj.gateLength : 1;
+
     keys.forEach((key, i) => {
-      const step = this.seq.steps[startIdx + i];
-      if (step) {
-        this.updateSingleStepKeyUI(key, step);
-      }
+      const stepIdx = startIdx + i;
+      const step = this.seq.steps[stepIdx];
+      if (!step) return;
+
+      const isSelected = (selectedStep === stepIdx);
+      const isGateTrail = (selectedStep !== null && stepIdx > selectedStep && stepIdx < (selectedStep + gateLen));
+
+      key.classList.toggle('active-step', step.notes.size > 0);
+      key.classList.toggle('has-prob', step.probability < 1.0);
+      key.classList.toggle('selected', isSelected);
+      key.classList.toggle('gate-trail', isGateTrail);
+    });
+  }
+
+  updatePageButtonsUI() {
+    const pageBtns = document.querySelectorAll('.page-btn');
+    pageBtns.forEach(btn => {
+      const p = parseInt(btn.dataset.page, 10);
+      btn.classList.toggle('active', this.seq.currentPage === p);
+      btn.classList.toggle('page-looping', this.seq.isPageLoop && this.seq.pageLoopIndex === p);
+    });
+  }
+
+  updateNoteKeysHighlight() {
+    const noteKeys = document.querySelectorAll('.step-key');
+    const selectedStep = this.seq.selectedStep !== null ? this.seq.steps[this.seq.selectedStep] : null;
+    const stepNotes = selectedStep ? selectedStep.notes : null;
+
+    noteKeys.forEach(key => {
+      const noteOffset = parseInt(key.dataset.note, 10) - 60;
+      const midiNote = (this.currentOctave * 12) + noteOffset;
+      key.classList.toggle('note-in-step', !!stepNotes && stepNotes.has(midiNote));
     });
   }
 
   // =========================================================================
-  // OLED OSCILLOSCOPE & FFT DISPLAY
+  // OLED OSCILLOSCOPE
   // =========================================================================
   initOscilloscope() {
     const canvas = this.scopeCanvas;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const analyser = this.engine.analyser;
-    const bufferLength = analyser ? analyser.frequencyBinCount : 1024;
-    const dataArray = new Uint8Array(bufferLength);
+    let dataArray = null;
 
     const render = () => {
       requestAnimationFrame(render);
-      if (!analyser) return;
-
-      analyser.getByteTimeDomainData(dataArray);
+      const analyser = this.engine.analyser;
 
       ctx.fillStyle = '#060a08';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw CRT Matrix Grid Lines
+      // Grid
       ctx.strokeStyle = 'rgba(0, 255, 127, 0.08)';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -508,23 +649,29 @@ class S1UIController {
       }
       ctx.stroke();
 
-      // Center Reference Line
       ctx.strokeStyle = 'rgba(0, 255, 127, 0.15)';
       ctx.beginPath();
       ctx.moveTo(0, canvas.height / 2);
       ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
 
-      // Oscilloscope Phosphor Waveform
+      if (!analyser) return;
+
+      if (!dataArray || dataArray.length !== analyser.frequencyBinCount) {
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+      }
+      analyser.getByteTimeDomainData(dataArray);
+
+      // Phosphor Waveform
       ctx.lineWidth = 2;
       ctx.strokeStyle = '#00ff7f';
       ctx.shadowColor = '#00ff7f';
       ctx.shadowBlur = 8;
       ctx.beginPath();
 
-      const sliceWidth = canvas.width / bufferLength;
+      const sliceWidth = canvas.width / dataArray.length;
       let x = 0;
-      for (let i = 0; i < bufferLength; i++) {
+      for (let i = 0; i < dataArray.length; i++) {
         const v = dataArray[i] / 128.0;
         const y = (v * canvas.height) / 2;
         if (i === 0) ctx.moveTo(x, y);
@@ -532,7 +679,7 @@ class S1UIController {
         x += sliceWidth;
       }
       ctx.stroke();
-      ctx.shadowBlur = 0; // Reset
+      ctx.shadowBlur = 0;
     };
 
     render();
@@ -547,6 +694,7 @@ class S1UIController {
     const btnClose = document.getElementById('btn-close-draw');
     const btnApply = document.getElementById('btn-apply-draw');
     const canvas = document.getElementById('draw-canvas');
+    if (!canvas || !modal) return;
     const ctx = canvas.getContext('2d');
 
     const numPoints = 64;
@@ -556,7 +704,6 @@ class S1UIController {
       ctx.fillStyle = '#080c10';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Grid
       ctx.strokeStyle = 'rgba(255, 145, 0, 0.15)';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -567,7 +714,6 @@ class S1UIController {
       ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
 
-      // Waveform trace
       ctx.strokeStyle = '#ff9100';
       ctx.shadowColor = 'rgba(255, 145, 0, 0.6)';
       ctx.shadowBlur = 10;
@@ -576,7 +722,7 @@ class S1UIController {
 
       const stepX = canvas.width / numPoints;
       for (let i = 0; i < numPoints; i++) {
-        const normY = wavePoints[i]; // -1 to 1
+        const normY = wavePoints[i];
         const canvasY = (canvas.height / 2) - (normY * (canvas.height * 0.45));
         const canvasX = i * stepX + (stepX / 2);
         if (i === 0) ctx.moveTo(canvasX, canvasY);
@@ -587,6 +733,7 @@ class S1UIController {
     };
 
     btnOpen.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       modal.hidden = false;
       wavePoints = new Float32Array(this.engine.drawnWavePoints);
       drawGridAndWave();
@@ -595,6 +742,7 @@ class S1UIController {
     btnClose.addEventListener('click', () => { modal.hidden = true; });
 
     btnApply.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
       this.engine.setDrawnWaveform(wavePoints);
       this.engine.setParam('oscDrawMix', Math.max(0.4, this.engine.params.oscDrawMix));
       const drawKnob = document.querySelector('.rotary-knob[data-param="oscDrawMix"]');
@@ -605,7 +753,6 @@ class S1UIController {
       this.setDisplay('drAW', 'CUSTOM WAVE APPLIED');
     });
 
-    // Drawing Interaction
     let isDrawing = false;
     const plotPoint = (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -631,7 +778,6 @@ class S1UIController {
     });
     window.addEventListener('pointerup', () => { isDrawing = false; });
 
-    // Preset Waveform Buttons
     const presetBtns = document.querySelectorAll('[data-draw-preset]');
     presetBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -665,7 +811,7 @@ class S1UIController {
     if (navigator.requestMIDIAccess) {
       navigator.requestMIDIAccess().then(
         (midiAccess) => {
-          midiLed.classList.add('active');
+          if (midiLed) midiLed.classList.add('active');
           this.setDisplay('MIdI', 'MIDI READY');
           for (const input of midiAccess.inputs.values()) {
             input.onmidimessage = (msg) => this.handleMidiMessage(msg);
@@ -676,27 +822,25 @@ class S1UIController {
             }
           };
         },
-        () => console.log('Web MIDI access not granted')
+        () => {}
       );
     }
   }
 
   handleMidiMessage(event) {
+    this.engine.ensureAudioContext();
     const [status, note, velocity] = event.data;
     const command = status >> 4;
     const midiLed = document.getElementById('midi-led');
 
-    // Flash MIDI LED
     if (midiLed) {
       midiLed.style.boxShadow = '0 0 14px #00e5ff';
       setTimeout(() => { midiLed.style.boxShadow = ''; }, 100);
     }
 
     if (command === 9 && velocity > 0) {
-      // Note On
       this.engine.triggerNoteOn(note, velocity / 127);
     } else if (command === 8 || (command === 9 && velocity === 0)) {
-      // Note Off
       this.engine.triggerNoteOff(note);
     }
   }
@@ -708,8 +852,10 @@ class S1UIController {
     const btnRec = document.getElementById('btn-record-wav');
     const recLed = document.getElementById('rec-led');
     const recLabel = document.getElementById('rec-label');
+    if (!btnRec) return;
 
     btnRec.addEventListener('click', async () => {
+      this.engine.ensureAudioContext();
       if (!this.engine.isRecording) {
         const started = this.engine.startRecording();
         if (started) {
