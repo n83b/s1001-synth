@@ -42,6 +42,7 @@ const S1_PRESETS = [
       fxReverbSend: 0.2
     },
     pattern: {
+      pageLoop: { enabled: true, start: 0, end: 0 },
       steps: [
         { gate: true, note: 36, velocity: 1.0, probability: 1.0, substep: 1 },
         { gate: true, note: 36, velocity: 0.7, probability: 1.0, substep: 1 },
@@ -102,6 +103,7 @@ const S1_PRESETS = [
       fxReverbSend: 0.35
     },
     pattern: {
+      pageLoop: { enabled: true, start: 0, end: 0 },
       steps: [
         { gate: true, note: 60, velocity: 0.9, probability: 1.0, substep: 1 },
         { gate: false, note: 60, velocity: 0.8, probability: 1.0, substep: 1 },
@@ -163,6 +165,7 @@ const S1_PRESETS = [
       fxReverbSend: 0.5
     },
     pattern: {
+      pageLoop: { enabled: true, start: 0, end: 0 },
       steps: [
         { gate: true, note: 60, velocity: 0.95, probability: 1.0, substep: 1 },
         { gate: false, note: 60, velocity: 0.8, probability: 1.0, substep: 1 },
@@ -223,6 +226,7 @@ const S1_PRESETS = [
       fxReverbSend: 0.7
     },
     pattern: {
+      pageLoop: { enabled: true, start: 0, end: 0 },
       steps: [
         { gate: true, note: 60, velocity: 0.85, probability: 1.0, substep: 1 },
         { gate: false, note: 60, velocity: 0.8, probability: 1.0, substep: 1 },
@@ -283,6 +287,7 @@ const S1_PRESETS = [
       fxReverbSend: 0.4
     },
     pattern: {
+      pageLoop: { enabled: true, start: 0, end: 0 },
       steps: [
         { gate: true, note: 48, velocity: 1.0, probability: 1.0, substep: 1 },
         { gate: true, note: 48, velocity: 0.8, probability: 1.0, substep: 1 },

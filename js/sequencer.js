@@ -23,8 +23,8 @@ class S1Sequencer {
     this.stepLoopStart = 0;
     this.stepLoopLength = 4;
 
-    // Page Loop State (double-tap page button to loop page / range)
-    this.isPageLoop = false;
+    // Page Loop State (locked on Page 1-16 by default)
+    this.isPageLoop = true;
     this.pageLoopStart = 0;
     this.pageLoopEnd = 0;
 
@@ -409,6 +409,24 @@ class S1Sequencer {
         }
       }
     }
+    // Page Loop / Page Lock settings saved with pattern
+    if (patternData.pageLoop !== undefined) {
+      if (typeof patternData.pageLoop === 'boolean') {
+        this.isPageLoop = patternData.pageLoop;
+        this.pageLoopStart = patternData.pageLoopStart !== undefined ? patternData.pageLoopStart : 0;
+        this.pageLoopEnd = patternData.pageLoopEnd !== undefined ? patternData.pageLoopEnd : 0;
+      } else if (typeof patternData.pageLoop === 'object') {
+        this.isPageLoop = patternData.pageLoop.enabled !== undefined ? patternData.pageLoop.enabled : true;
+        this.pageLoopStart = patternData.pageLoop.start !== undefined ? patternData.pageLoop.start : 0;
+        this.pageLoopEnd = patternData.pageLoop.end !== undefined ? patternData.pageLoop.end : 0;
+      }
+    } else {
+      // Default: locked on Page 1 (1-16)
+      this.isPageLoop = true;
+      this.pageLoopStart = 0;
+      this.pageLoopEnd = 0;
+    }
+    this.currentPage = patternData.currentPage !== undefined ? patternData.currentPage : this.pageLoopStart;
   }
 }
 
