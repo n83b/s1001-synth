@@ -208,8 +208,8 @@ class S1Sequencer {
     const secondsPerBeat = 60.0 / tempo;
     const stepDuration = secondsPerBeat * 0.25;
 
-    // Apply Motion Automation
-    this.applyMotion(stepIdx, time);
+    // Collect any per-step motion automated parameters
+    const stepParams = this.getStepParams(stepIdx);
 
     // Notify UI (highlight chase LED and step)
     const pageOfStep = Math.floor(stepIdx / 16);
@@ -241,31 +241,32 @@ class S1Sequencer {
 
     if (sub === 1) {
       const noteDuration = (stepDuration * gateLen) * 0.85;
-      notes.forEach(note => this.triggerScheduledNote(note, velocity, time, noteDuration));
+      notes.forEach(note => this.triggerScheduledNote(note, velocity, time, noteDuration, stepParams));
     } else {
       const subDuration = (stepDuration * gateLen) / sub;
       for (let s = 0; s < sub; s++) {
         const subTime = time + (s * (stepDuration / sub));
         const subVelocity = velocity * (s === 0 ? 1.0 : 0.8);
-        notes.forEach(note => this.triggerScheduledNote(note, subVelocity, subTime, subDuration * 0.75));
+        notes.forEach(note => this.triggerScheduledNote(note, subVelocity, subTime, subDuration * 0.75, stepParams));
       }
     }
   }
 
-  triggerScheduledNote(note, velocity, time, duration) {
+  triggerScheduledNote(note, velocity, time, duration, stepParams = null) {
     const ctx = this.engine.ctx;
     if (!ctx) return;
     const delayFromNow = Math.max(0, time - ctx.currentTime);
+    const releaseTime = (stepParams && stepParams.envRelease !== undefined) ? stepParams.envRelease : null;
 
     setTimeout(() => {
       if (this.isPlaying) {
-        this.engine.triggerNoteOn(note, velocity);
+        this.engine.triggerNoteOn(note, velocity, stepParams);
       }
     }, delayFromNow * 1000);
 
     setTimeout(() => {
       if (this.isPlaying) {
-        this.engine.triggerNoteOff(note);
+        this.engine.triggerNoteOff(note, releaseTime);
       }
     }, (delayFromNow + duration) * 1000);
   }
@@ -273,6 +274,20 @@ class S1Sequencer {
   // =========================================================================
   // MOTION RECORDING & PER-STEP AUTOMATION
   // =========================================================================
+  getStepParams(stepIdx) {
+    if (stepIdx === null || stepIdx === undefined || stepIdx < 0 || stepIdx >= this.totalSteps) return null;
+    const stepParams = {};
+    let hasParam = false;
+    for (const [param, lane] of Object.entries(this.motionData)) {
+      const val = lane[stepIdx];
+      if (val !== -1 && val !== undefined) {
+        stepParams[param] = val;
+        hasParam = true;
+      }
+    }
+    return hasParam ? stepParams : null;
+  }
+
   recordMotion(paramName, value) {
     if (!this.isRecordingMotion || !this.isPlaying) return;
     if (!this.motionData[paramName]) {

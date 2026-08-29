@@ -211,9 +211,10 @@ class S1AudioEngine {
     }
   }
 
-  updateDriveCurve() {
+  updateDriveCurve(overrideDrive = null) {
     if (!this.driveNode) return;
-    const k = this.params.drive * 30;
+    const driveVal = (overrideDrive !== null && overrideDrive !== undefined) ? overrideDrive : this.params.drive;
+    const k = driveVal * 30;
     const n_samples = 44100;
     const curve = new Float32Array(n_samples);
     const deg = Math.PI / 180;
@@ -458,18 +459,51 @@ class S1AudioEngine {
     return 440 * Math.pow(2, (midi - 69) / 12);
   }
 
-  triggerNoteOn(midiNote, velocity = 1.0) {
+  triggerNoteOn(midiNote, velocity = 1.0, stepParams = null) {
     this.ensureAudioContext();
     if (this.isMuted || this.voices.length === 0) return;
 
+    // Apply any global effects step automation
+    if (stepParams) {
+      if (stepParams.drive !== undefined) this.updateDriveCurve(stepParams.drive);
+      if (stepParams.masterVolume !== undefined && this.masterGain && this.ctx) {
+        this.masterGain.gain.setValueAtTime(stepParams.masterVolume, this.ctx.currentTime);
+      }
+      if (stepParams.fxChorusSend !== undefined && this.chorusGain && this.ctx) {
+        this.chorusGain.gain.setValueAtTime(stepParams.fxChorusSend, this.ctx.currentTime);
+      }
+      if (stepParams.fxDelaySend !== undefined && this.delayGain && this.ctx) {
+        this.delayGain.gain.setValueAtTime(stepParams.fxDelaySend, this.ctx.currentTime);
+      }
+      if (stepParams.fxDelayTime !== undefined && this.delayNode && this.ctx) {
+        this.delayNode.delayTime.setValueAtTime(stepParams.fxDelayTime, this.ctx.currentTime);
+      }
+      if (stepParams.fxDelayFeedback !== undefined && this.delayFeedback && this.ctx) {
+        this.delayFeedback.gain.setValueAtTime(stepParams.fxDelayFeedback, this.ctx.currentTime);
+      }
+      if (stepParams.fxReverbSend !== undefined && this.reverbGain && this.ctx) {
+        this.reverbGain.gain.setValueAtTime(stepParams.fxReverbSend, this.ctx.currentTime);
+      }
+    } else {
+      // Revert global effects to base patch params if needed
+      if (this.driveNode) this.updateDriveCurve(this.params.drive);
+      if (this.masterGain && this.ctx) this.masterGain.gain.setValueAtTime(this.params.masterVolume, this.ctx.currentTime);
+      if (this.chorusGain && this.ctx) this.chorusGain.gain.setValueAtTime(this.params.fxChorusSend, this.ctx.currentTime);
+      if (this.delayGain && this.ctx) this.delayGain.gain.setValueAtTime(this.params.fxDelaySend, this.ctx.currentTime);
+      if (this.delayNode && this.ctx) this.delayNode.delayTime.setValueAtTime(this.params.fxDelayTime, this.ctx.currentTime);
+      if (this.delayFeedback && this.ctx) this.delayFeedback.gain.setValueAtTime(this.params.fxDelayFeedback, this.ctx.currentTime);
+      if (this.reverbGain && this.ctx) this.reverbGain.gain.setValueAtTime(this.params.fxReverbSend, this.ctx.currentTime);
+    }
+
     const baseFreq = this.midiToFreq(midiNote);
-    const mode = this.params.voiceMode;
+    const mode = (stepParams && stepParams.voiceMode) ? stepParams.voiceMode : this.params.voiceMode;
 
     if (mode === 'mono') {
       const voice = this.voices[0];
       if (voice) {
         const prevFreq = this.lastMonoFreq || baseFreq;
-        voice.triggerOn(midiNote, baseFreq, velocity, prevFreq, this.params.portamento);
+        const porta = (stepParams && stepParams.portamento !== undefined) ? stepParams.portamento : this.params.portamento;
+        voice.triggerOn(midiNote, baseFreq, velocity, prevFreq, porta, stepParams);
         this.lastMonoNote = midiNote;
         this.lastMonoFreq = baseFreq;
         this.activeVoiceMap.set(midiNote, voice);
@@ -477,11 +511,12 @@ class S1AudioEngine {
     } 
     else if (mode === 'unison') {
       const detunes = [-12, -4, 4, 12];
+      const porta = (stepParams && stepParams.portamento !== undefined) ? stepParams.portamento : this.params.portamento;
       for (let i = 0; i < this.maxVoices; i++) {
         const v = this.voices[i];
         if (v) {
           const detunedFreq = baseFreq * Math.pow(2, detunes[i] / 1200);
-          v.triggerOn(midiNote, detunedFreq, velocity * 0.45, baseFreq, this.params.portamento);
+          v.triggerOn(midiNote, detunedFreq, velocity * 0.45, baseFreq, porta, stepParams);
         }
       }
       this.activeVoiceMap.set(midiNote, this.voices);
@@ -493,7 +528,7 @@ class S1AudioEngine {
         if (v) {
           const chordMidi = midiNote + intervals[i];
           const chordFreq = this.midiToFreq(chordMidi);
-          v.triggerOn(chordMidi, chordFreq, velocity * 0.5, chordFreq, 0);
+          v.triggerOn(chordMidi, chordFreq, velocity * 0.5, chordFreq, 0, stepParams);
         }
       }
       this.activeVoiceMap.set(midiNote, this.voices);
@@ -506,7 +541,7 @@ class S1AudioEngine {
         );
       }
       if (voice) {
-        voice.triggerOn(midiNote, baseFreq, velocity, baseFreq, 0);
+        voice.triggerOn(midiNote, baseFreq, velocity, baseFreq, 0, stepParams);
         this.activeVoiceMap.set(midiNote, voice);
       }
     }
@@ -516,15 +551,15 @@ class S1AudioEngine {
     }
   }
 
-  triggerNoteOff(midiNote) {
+  triggerNoteOff(midiNote, releaseOverride = null) {
     if (!this.isInitialized) return;
     const entry = this.activeVoiceMap.get(midiNote);
     if (!entry) return;
 
     if (Array.isArray(entry)) {
-      entry.forEach(v => v.triggerOff());
+      entry.forEach(v => v.triggerOff(false, releaseOverride));
     } else {
-      entry.triggerOff();
+      entry.triggerOff(false, releaseOverride);
     }
     this.activeVoiceMap.delete(midiNote);
 
@@ -858,16 +893,37 @@ class S1Voice {
     this.oscSub.frequency.setValueAtTime(subFreq, now);
   }
 
-  triggerOn(midiNote, freq, velocity = 1.0, prevFreq = freq, glideTime = 0) {
+  triggerOn(midiNote, freq, velocity = 1.0, prevFreq = freq, glideTime = 0, stepParams = null) {
     const ctx = this.ctx;
     if (!ctx) return;
     const now = ctx.currentTime;
-    const p = this.engine.params;
+    const p = stepParams ? Object.assign({}, this.engine.params, stepParams) : this.engine.params;
 
     this.isPlaying = true;
     this.currentNote = midiNote;
     this.currentFreq = freq;
     this.lastTriggerTime = performance.now();
+
+    // Dynamically update voice oscillator gains and wave routing to match this step's params
+    this.gainSaw.gain.setValueAtTime(p.oscSaw, now);
+    this.gainPulse.gain.setValueAtTime(p.oscSquare, now);
+    if (this.pwmBiasGain) this.pwmBiasGain.gain.setValueAtTime((p.oscPwm - 0.5) * 1.6, now);
+    if (this.lfoPwmGain) this.lfoPwmGain.gain.setValueAtTime(p.lfoPwmDepth * 0.85, now);
+    this.gainSub.gain.setValueAtTime(p.oscSub, now);
+    this.gainNoise.gain.setValueAtTime(p.oscNoise, now);
+    this.gainDraw.gain.setValueAtTime(p.oscDrawMix, now);
+    this.chopWetGain.gain.setValueAtTime(p.oscChop, now);
+    this.chopFeedback.gain.setValueAtTime(Math.min(p.oscChopComb, 0.85), now);
+
+    // Update filter resonance & HPF for this voice
+    this.lpf1.Q.setValueAtTime(p.filterResonance, now);
+    this.lpf2.Q.setValueAtTime(p.filterResonance * 0.5, now);
+    this.hpf.frequency.setValueAtTime(p.filterHpf, now);
+
+    // Update LFO for this voice
+    this.lfo.frequency.setValueAtTime(p.lfoRate, now);
+    this.lfoPitchGain.gain.setValueAtTime(p.lfoPitchDepth * 200, now);
+    this.lfoFilterGain.gain.setValueAtTime(p.lfoFilterDepth * 3000, now);
 
     const safeFreq = Math.max(20, Math.min(20000, freq));
     const safePrevFreq = Math.max(20, Math.min(20000, prevFreq || freq));
@@ -927,7 +983,7 @@ class S1Voice {
     this.voiceGain.gain.exponentialRampToValueAtTime(sustainVol, decayEnd);
   }
 
-  triggerOff(instant = false) {
+  triggerOff(instant = false, releaseOverride = null) {
     const ctx = this.ctx;
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -946,7 +1002,7 @@ class S1Voice {
     }
 
     const currentGain = Math.max(0.0001, this.voiceGain.gain.value);
-    const relTime = Math.max(0.01, p.envRelease);
+    const relTime = Math.max(0.01, releaseOverride !== null ? releaseOverride : p.envRelease);
     this.voiceGain.gain.setValueAtTime(currentGain, now);
     this.voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + relTime);
     this.voiceGain.gain.setValueAtTime(0, now + relTime + 0.02);
