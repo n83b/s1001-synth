@@ -156,7 +156,7 @@ class S1UIController {
 
         this.engine.setParam(paramName, newVal);
         this.seq.recordMotion(paramName, newVal);
-        if (this.seq.selectedStep !== null) {
+        if (this.seq.selectedStep !== null && this.seq.isRecordingMotion) {
           this.seq.setStepParam(this.seq.selectedStep, paramName, newVal);
         }
         this.updateKnobVisual(knob, newVal, min, max, isExp);
@@ -194,7 +194,7 @@ class S1UIController {
         const newVal = Math.max(min, Math.min(max, cur + step));
         this.engine.setParam(paramName, newVal);
         this.seq.recordMotion(paramName, newVal);
-        if (this.seq.selectedStep !== null) {
+        if (this.seq.selectedStep !== null && this.seq.isRecordingMotion) {
           this.seq.setStepParam(this.seq.selectedStep, paramName, newVal);
         }
         this.updateKnobVisual(knob, newVal, min, max, isExp);
@@ -204,7 +204,7 @@ class S1UIController {
       knob.addEventListener('dblclick', () => {
         this.engine.ensureAudioContext();
         this.engine.setParam(paramName, def);
-        if (this.seq.selectedStep !== null) {
+        if (this.seq.selectedStep !== null && this.seq.isRecordingMotion) {
           this.seq.setStepParam(this.seq.selectedStep, paramName, def);
         }
         this.updateKnobVisual(knob, def, min, max, isExp);
