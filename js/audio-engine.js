@@ -1,6 +1,6 @@
 /**
- * Roland AIRA Compact S-1 Tweak Synth - Web Audio Sound Engine
- * True Analog Variable Pulse Width Modulation (PWM), OSC Draw, OSC Chop, Resonant 24dB VCF & Roland FX Chain
+ * Barnestorm S-1001 Tweak Synth - Web Audio Sound Engine
+ * Variable Pulse Width Modulation (PWM), OSC Draw, OSC Chop, resonant 24dB VCF, and onboard FX
  */
 
 class S1AudioEngine {
@@ -57,6 +57,7 @@ class S1AudioEngine {
       fxDelayFeedback: 0.4,
       fxReverbSend: 0.3
     };
+    this.defaultParams = { ...this.params };
 
     // Drawn Waveform Points (Default Sine)
     this.drawnWavePoints = new Float32Array(64);
@@ -72,10 +73,16 @@ class S1AudioEngine {
     this.lastMonoNote = null;
     this.lastMonoFreq = 440;
 
-    // Recording buffer
-    this.recorder = null;
-    this.recordedChunks = [];
+    // Uncompressed PCM recording state
+    this.recordingProcessor = null;
+    this.recordingSilentGain = null;
+    this.recordingBuffers = [[], []];
+    this.recordedSampleCount = 0;
+    this.recordingStartTime = 0;
+    this.recordingRequestedSampleCount = null;
     this.isRecording = false;
+    this.isStoppingRecording = false;
+    this.recordingStopResolve = null;
 
     // PWM Comparator Curve Cache
     this.pwmCurve = this.createPwmCurve();
@@ -176,15 +183,6 @@ class S1AudioEngine {
     this.setupDelay();
     this.setupReverb();
 
-    // Recording Destination
-    try {
-      if (this.ctx.createMediaStreamDestination) {
-        this.recDestination = this.ctx.createMediaStreamDestination();
-      }
-    } catch (e) {
-      this.recDestination = null;
-    }
-
     // Wiring Audio Graph
     this.voiceBus.connect(this.driveNode);
     this.driveNode.connect(this.masterGain);
@@ -206,9 +204,7 @@ class S1AudioEngine {
     this.limiter.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
 
-    if (this.recDestination) {
-      this.limiter.connect(this.recDestination);
-    }
+
   }
 
   updateDriveCurve(overrideDrive = null) {
@@ -405,6 +401,12 @@ class S1AudioEngine {
   // =========================================================================
   // PARAMETER UPDATES
   // =========================================================================
+  resetPatch() {
+    Object.entries(this.defaultParams).forEach(([name, value]) => {
+      this.setParam(name, value);
+    });
+  }
+
   setParam(name, value) {
     this.params[name] = value;
     const now = this.ctx ? this.ctx.currentTime : 0;
@@ -459,7 +461,7 @@ class S1AudioEngine {
     return 440 * Math.pow(2, (midi - 69) / 12);
   }
 
-  triggerNoteOn(midiNote, velocity = 1.0, stepParams = null) {
+  triggerNoteOn(midiNote, velocity = 1.0, stepParams = null, source = 'live') {
     this.ensureAudioContext();
     if (this.isMuted || this.voices.length === 0) return;
 
@@ -496,6 +498,7 @@ class S1AudioEngine {
     }
 
     const baseFreq = this.midiToFreq(midiNote);
+    const noteKey = `${source}:${midiNote}`;
     const mode = (stepParams && stepParams.voiceMode) ? stepParams.voiceMode : this.params.voiceMode;
 
     if (mode === 'mono') {
@@ -506,7 +509,7 @@ class S1AudioEngine {
         voice.triggerOn(midiNote, baseFreq, velocity, prevFreq, porta, stepParams);
         this.lastMonoNote = midiNote;
         this.lastMonoFreq = baseFreq;
-        this.activeVoiceMap.set(midiNote, voice);
+        this.activeVoiceMap.set(noteKey, voice);
       }
     } 
     else if (mode === 'unison') {
@@ -519,7 +522,7 @@ class S1AudioEngine {
           v.triggerOn(midiNote, detunedFreq, velocity * 0.45, baseFreq, porta, stepParams);
         }
       }
-      this.activeVoiceMap.set(midiNote, this.voices);
+      this.activeVoiceMap.set(noteKey, this.voices);
     } 
     else if (mode === 'chord') {
       const intervals = this.getChordIntervals(this.params.chordType);
@@ -531,7 +534,7 @@ class S1AudioEngine {
           v.triggerOn(chordMidi, chordFreq, velocity * 0.5, chordFreq, 0, stepParams);
         }
       }
-      this.activeVoiceMap.set(midiNote, this.voices);
+      this.activeVoiceMap.set(noteKey, this.voices);
     } 
     else {
       let voice = this.voices.find(v => !v.isPlaying);
@@ -542,7 +545,7 @@ class S1AudioEngine {
       }
       if (voice) {
         voice.triggerOn(midiNote, baseFreq, velocity, baseFreq, 0, stepParams);
-        this.activeVoiceMap.set(midiNote, voice);
+        this.activeVoiceMap.set(noteKey, voice);
       }
     }
 
@@ -551,9 +554,10 @@ class S1AudioEngine {
     }
   }
 
-  triggerNoteOff(midiNote, releaseOverride = null) {
+  triggerNoteOff(midiNote, releaseOverride = null, source = 'live') {
     if (!this.isInitialized) return;
-    const entry = this.activeVoiceMap.get(midiNote);
+    const noteKey = `${source}:${midiNote}`;
+    const entry = this.activeVoiceMap.get(noteKey);
     if (!entry) return;
 
     if (Array.isArray(entry)) {
@@ -561,7 +565,7 @@ class S1AudioEngine {
     } else {
       entry.triggerOff(false, releaseOverride);
     }
-    this.activeVoiceMap.delete(midiNote);
+    this.activeVoiceMap.delete(noteKey);
 
     if (this.onNoteTrigger) {
       this.onNoteTrigger(midiNote, false);
@@ -585,50 +589,156 @@ class S1AudioEngine {
   }
 
   // =========================================================================
-  // AUDIO RECORDING & WAV/AUDIO EXPORT
+  // AUDIO RECORDING & WAV EXPORT
   // =========================================================================
   startRecording() {
     this.ensureAudioContext();
-    if (!this.recDestination) return false;
-    this.recordedChunks = [];
+    if (!this.ctx || !this.limiter || this.isRecording) return false;
+
+    const createProcessor = this.ctx.createScriptProcessor || this.ctx.createJavaScriptNode;
+    if (!createProcessor) return false;
+
     try {
-      let options = {};
-      if (typeof MediaRecorder !== 'undefined') {
-        if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/webm')) {
-          options = { mimeType: 'audio/webm' };
-        } else if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/mp4')) {
-          options = { mimeType: 'audio/mp4' };
+      this.recordingBuffers = [[], []];
+      this.recordedSampleCount = 0;
+      this.recordingStartTime = this.ctx.currentTime;
+      this.recordingRequestedSampleCount = null;
+      this.isStoppingRecording = false;
+      this.recordingStopResolve = null;
+      this.recordingProcessor = createProcessor.call(this.ctx, 1024, 2, 2);
+      this.recordingSilentGain = this.ctx.createGain();
+      this.recordingSilentGain.gain.value = 0;
+
+      this.recordingProcessor.onaudioprocess = (event) => {
+        if (!this.isRecording) return;
+
+        const input = event.inputBuffer;
+        const left = new Float32Array(input.getChannelData(0));
+        const right = input.numberOfChannels > 1
+          ? new Float32Array(input.getChannelData(1))
+          : new Float32Array(left);
+
+        this.recordingBuffers[0].push(left);
+        this.recordingBuffers[1].push(right);
+        this.recordedSampleCount += left.length;
+
+        if (this.isStoppingRecording) {
+          const resolve = this.recordingStopResolve;
+          const blob = this.finishRecording();
+          if (resolve) resolve(blob);
         }
-      }
-      this.recorder = new MediaRecorder(this.recDestination.stream, options);
-      this.recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) this.recordedChunks.push(e.data);
       };
-      this.recorder.start(100);
+
+      this.limiter.connect(this.recordingProcessor);
+      this.recordingProcessor.connect(this.recordingSilentGain);
+      this.recordingSilentGain.connect(this.ctx.destination);
       this.isRecording = true;
       return true;
     } catch (e) {
-      console.warn('Recording not supported on this browser:', e);
+      this.cleanupRecordingGraph();
+      console.warn('WAV recording is not supported on this browser:', e);
       return false;
     }
   }
 
   stopRecording() {
-    if (!this.recorder || !this.isRecording) return Promise.resolve(null);
+    if (!this.recordingProcessor || !this.isRecording || this.isStoppingRecording) {
+      return Promise.resolve(null);
+    }
+
+    this.isStoppingRecording = true;
+    this.recordingRequestedSampleCount = Math.max(
+      0,
+      Math.round((this.ctx.currentTime - this.recordingStartTime) * this.ctx.sampleRate)
+    );
     return new Promise((resolve) => {
-      this.recorder.onstop = () => {
-        const mime = (this.recorder && this.recorder.mimeType) || 'audio/webm';
-        const blob = new Blob(this.recordedChunks, { type: mime });
-        this.isRecording = false;
-        resolve(blob);
-      };
-      this.recorder.stop();
+      this.recordingStopResolve = resolve;
     });
+  }
+
+  finishRecording() {
+    this.isRecording = false;
+    this.isStoppingRecording = false;
+    this.recordingStopResolve = null;
+    this.cleanupRecordingGraph();
+
+    const finalSampleCount = Math.min(
+      this.recordedSampleCount,
+      this.recordingRequestedSampleCount ?? this.recordedSampleCount
+    );
+    const left = this.mergeRecordingBuffers(this.recordingBuffers[0], finalSampleCount);
+    const right = this.mergeRecordingBuffers(this.recordingBuffers[1], finalSampleCount);
+    return this.encodeWav(left, right, this.ctx.sampleRate);
+  }
+
+  cleanupRecordingGraph() {
+    if (this.recordingProcessor) {
+      this.recordingProcessor.onaudioprocess = null;
+      try { this.limiter.disconnect(this.recordingProcessor); } catch (e) {}
+      try { this.recordingProcessor.disconnect(); } catch (e) {}
+    }
+    if (this.recordingSilentGain) {
+      try { this.recordingSilentGain.disconnect(); } catch (e) {}
+    }
+    this.recordingProcessor = null;
+    this.recordingSilentGain = null;
+  }
+
+  mergeRecordingBuffers(chunks, sampleCount) {
+    const result = new Float32Array(sampleCount);
+    let offset = 0;
+    chunks.forEach((chunk) => {
+      if (offset >= sampleCount) return;
+      const remaining = sampleCount - offset;
+      const samples = chunk.length > remaining ? chunk.subarray(0, remaining) : chunk;
+      result.set(samples, offset);
+      offset += samples.length;
+    });
+    return result;
+  }
+
+  encodeWav(left, right, sampleRate) {
+    const channelCount = 2;
+    const bytesPerSample = 2;
+    const dataLength = left.length * channelCount * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+
+    const writeString = (offset, value) => {
+      for (let i = 0; i < value.length; i++) {
+        view.setUint8(offset + i, value.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, channelCount, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * channelCount * bytesPerSample, true);
+    view.setUint16(32, channelCount * bytesPerSample, true);
+    view.setUint16(34, bytesPerSample * 8, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+
+    let offset = 44;
+    for (let i = 0; i < left.length; i++) {
+      const leftSample = Math.max(-1, Math.min(1, left[i]));
+      const rightSample = Math.max(-1, Math.min(1, right[i]));
+      view.setInt16(offset, leftSample < 0 ? leftSample * 0x8000 : leftSample * 0x7fff, true);
+      view.setInt16(offset + 2, rightSample < 0 ? rightSample * 0x8000 : rightSample * 0x7fff, true);
+      offset += 4;
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
   }
 }
 
 // ===========================================================================
-// S-1 SINGLE SYNTH VOICE ARCHITECTURE WITH VARIABLE PWM COMPARATOR
+// S-1001 SINGLE SYNTH VOICE ARCHITECTURE WITH VARIABLE PWM COMPARATOR
 // ===========================================================================
 class S1Voice {
   constructor(engine, index) {
@@ -763,12 +873,37 @@ class S1Voice {
     // 8. LFO Modulation Matrix
     this.lfo = ctx.createOscillator();
     this.lfo.frequency.value = this.engine.params.lfoRate;
-    this.setLfoWave(this.engine.params.lfoWave);
+    this.lfoWaveGain = ctx.createGain();
+    this.lfo.connect(this.lfoWaveGain);
+
+    // A separately controlled random source provides genuine sample-and-hold.
+    if (ctx.createConstantSource) {
+      this.lfoSampleHold = ctx.createConstantSource();
+      this.lfoSampleHold.offset.value = 0;
+      this.lfoSampleHoldParam = this.lfoSampleHold.offset;
+    } else {
+      const dcBuffer = ctx.createBuffer(1, 128, ctx.sampleRate);
+      dcBuffer.getChannelData(0).fill(1);
+      this.lfoSampleHold = ctx.createBufferSource();
+      this.lfoSampleHold.buffer = dcBuffer;
+      this.lfoSampleHold.loop = true;
+      this.lfoSampleHoldValue = ctx.createGain();
+      this.lfoSampleHoldValue.gain.value = 0;
+      this.lfoSampleHoldParam = this.lfoSampleHoldValue.gain;
+      this.lfoSampleHold.connect(this.lfoSampleHoldValue);
+    }
+    this.lfoSampleHoldGain = ctx.createGain();
+    this.lfoSampleHoldGain.gain.value = 0;
+    if (this.lfoSampleHoldValue) this.lfoSampleHoldValue.connect(this.lfoSampleHoldGain);
+    else this.lfoSampleHold.connect(this.lfoSampleHoldGain);
+    this.sampleHoldTimer = null;
+    this.sampleHoldRate = null;
 
     // LFO -> Pitch (Vibrato)
     this.lfoPitchGain = ctx.createGain();
     this.lfoPitchGain.gain.value = this.engine.params.lfoPitchDepth * 200;
-    this.lfo.connect(this.lfoPitchGain);
+    this.lfoWaveGain.connect(this.lfoPitchGain);
+    this.lfoSampleHoldGain.connect(this.lfoPitchGain);
     this.lfoPitchGain.connect(this.oscSaw.detune);
     this.lfoPitchGain.connect(this.oscPulseSaw.detune);
     this.lfoPitchGain.connect(this.oscDraw.detune);
@@ -776,15 +911,18 @@ class S1Voice {
     // LFO -> Filter Cutoff (Wah / Growl)
     this.lfoFilterGain = ctx.createGain();
     this.lfoFilterGain.gain.value = this.engine.params.lfoFilterDepth * 3000;
-    this.lfo.connect(this.lfoFilterGain);
+    this.lfoWaveGain.connect(this.lfoFilterGain);
+    this.lfoSampleHoldGain.connect(this.lfoFilterGain);
     this.lfoFilterGain.connect(this.lpf1.frequency);
     this.lfoFilterGain.connect(this.lpf2.frequency);
 
-    // LFO -> PWM Depth (Roland Juno / SH-101 Pulse Width Sweep)
+    // LFO -> PWM Depth
     this.lfoPwmGain = ctx.createGain();
     this.lfoPwmGain.gain.value = this.engine.params.lfoPwmDepth * 0.85;
-    this.lfo.connect(this.lfoPwmGain);
+    this.lfoWaveGain.connect(this.lfoPwmGain);
+    this.lfoSampleHoldGain.connect(this.lfoPwmGain);
     this.lfoPwmGain.connect(this.pwmSummer);
+    this.setLfoWave(this.engine.params.lfoWave);
 
     // Signal Routing
     this.oscMixer.connect(this.hpf);
@@ -801,13 +939,51 @@ class S1Voice {
     this.noiseSource.start(0);
     this.oscDraw.start(0);
     this.lfo.start(0);
+    this.lfoSampleHold.start(0);
   }
 
   setLfoWave(shape) {
+    const now = this.ctx.currentTime;
+    const isSampleHold = shape === 'sh';
+
     if (shape === 'triangle') this.lfo.type = 'triangle';
     else if (shape === 'saw') this.lfo.type = 'sawtooth';
     else if (shape === 'square') this.lfo.type = 'square';
-    else if (shape === 'sh') this.lfo.type = 'square';
+
+    this.lfoWaveGain.gain.setValueAtTime(isSampleHold ? 0 : 1, now);
+    this.lfoSampleHoldGain.gain.setValueAtTime(isSampleHold ? 1 : 0, now);
+
+    if (isSampleHold) this.startSampleHold(this.engine.params.lfoRate);
+    else this.stopSampleHold();
+  }
+
+  startSampleHold(rate = this.engine.params.lfoRate) {
+    const normalizedRate = Math.max(0.1, rate);
+    if (this.sampleHoldTimer !== null && this.sampleHoldRate === normalizedRate) return;
+
+    this.stopSampleHold();
+    this.sampleHoldRate = normalizedRate;
+
+    const updateValue = () => {
+      if (this.lfoSampleHoldParam && this.ctx) {
+        this.lfoSampleHoldParam.setValueAtTime((Math.random() * 2) - 1, this.ctx.currentTime);
+      }
+    };
+    const intervalMs = Math.max(16, 1000 / normalizedRate);
+
+    updateValue();
+    this.sampleHoldTimer = window.setInterval(updateValue, intervalMs);
+  }
+
+  stopSampleHold() {
+    if (this.sampleHoldTimer !== null) {
+      window.clearInterval(this.sampleHoldTimer);
+      this.sampleHoldTimer = null;
+    }
+    this.sampleHoldRate = null;
+    if (this.lfoSampleHoldParam && this.ctx) {
+      this.lfoSampleHoldParam.setValueAtTime(0, this.ctx.currentTime);
+    }
   }
 
   updatePeriodicWave(pWave) {
@@ -816,6 +992,32 @@ class S1Voice {
         this.oscDraw.setPeriodicWave(pWave);
       } catch (e) {}
     }
+  }
+
+  getFilterSustainCutoff(baseCutoff, params = this.engine.params) {
+    if (Math.abs(params.filterEnvDepth) <= 0.001) return baseCutoff;
+
+    const sweepOctaves = params.filterEnvDepth * 7;
+    const peakCutoff = Math.max(20, Math.min(20000, baseCutoff * Math.pow(2, sweepOctaves)));
+    const sustainRatio = Math.max(0, Math.min(1, params.envSustain));
+    return Math.max(
+      20,
+      Math.min(20000, baseCutoff * Math.pow(peakCutoff / baseCutoff, sustainRatio))
+    );
+  }
+
+  smoothAudioParam(param, targetValue, now, timeConstant = 0.006) {
+    if (typeof param.cancelAndHoldAtTime === 'function') {
+      param.cancelAndHoldAtTime(now);
+    } else {
+      param.cancelScheduledValues(now);
+      param.setValueAtTime(param.value, now);
+    }
+
+    // A short target curve avoids the resonant transient caused by repeatedly
+    // interrupting exponential ramps, then lands on the exact requested value.
+    param.setTargetAtTime(targetValue, now, timeConstant);
+    param.setValueAtTime(targetValue, now + (timeConstant * 5));
   }
 
   updateParam(name, value) {
@@ -861,35 +1063,31 @@ class S1Voice {
       case 'filterCutoff': {
         const keyFollow = (this.currentNote ? (this.currentNote - 60) * 35 * this.engine.params.filterKeyFollow : 0);
         const actualCutoff = Math.max(20, Math.min(20000, value + keyFollow));
-        this.lpf1.frequency.cancelScheduledValues(now);
-        this.lpf2.frequency.cancelScheduledValues(now);
-        this.lpf1.frequency.setValueAtTime(actualCutoff, now);
-        this.lpf2.frequency.setValueAtTime(actualCutoff, now);
+        const auditionCutoff = this.getFilterSustainCutoff(actualCutoff);
+        this.smoothAudioParam(this.lpf1.frequency, auditionCutoff, now);
+        this.smoothAudioParam(this.lpf2.frequency, auditionCutoff, now);
         break;
       }
       case 'filterResonance':
-        this.lpf1.Q.cancelScheduledValues(now);
-        this.lpf2.Q.cancelScheduledValues(now);
-        this.lpf1.Q.setValueAtTime(value, now);
-        this.lpf2.Q.setValueAtTime(value * 0.5, now);
+        this.smoothAudioParam(this.lpf1.Q, value, now);
+        this.smoothAudioParam(this.lpf2.Q, value * 0.5, now);
         break;
       case 'filterHpf':
-        this.hpf.frequency.cancelScheduledValues(now);
-        this.hpf.frequency.setValueAtTime(value, now);
+        this.smoothAudioParam(this.hpf.frequency, value, now);
         break;
       case 'filterEnvDepth':
       case 'filterKeyFollow':
         if (this.isPlaying && this.currentNote) {
           const keyFollow = (this.currentNote - 60) * 35 * this.engine.params.filterKeyFollow;
           const actualCutoff = Math.max(20, Math.min(20000, this.engine.params.filterCutoff + keyFollow));
-          this.lpf1.frequency.cancelScheduledValues(now);
-          this.lpf2.frequency.cancelScheduledValues(now);
-          this.lpf1.frequency.setValueAtTime(actualCutoff, now);
-          this.lpf2.frequency.setValueAtTime(actualCutoff, now);
+          const auditionCutoff = this.getFilterSustainCutoff(actualCutoff);
+          this.smoothAudioParam(this.lpf1.frequency, auditionCutoff, now);
+          this.smoothAudioParam(this.lpf2.frequency, auditionCutoff, now);
         }
         break;
       case 'lfoRate':
         this.lfo.frequency.setValueAtTime(value, now);
+        if (this.engine.params.lfoWave === 'sh') this.startSampleHold(value);
         break;
       case 'lfoWave':
         this.setLfoWave(value);
@@ -941,6 +1139,7 @@ class S1Voice {
 
     // Update LFO for this voice
     this.lfo.frequency.setValueAtTime(p.lfoRate, now);
+    if (p.lfoWave === 'sh') this.startSampleHold(p.lfoRate);
     this.lfoPitchGain.gain.setValueAtTime(p.lfoPitchDepth * 200, now);
     this.lfoFilterGain.gain.setValueAtTime(p.lfoFilterDepth * 3000, now);
 

@@ -1,6 +1,6 @@
 /**
- * Roland AIRA Compact S-1 Tweak Synth - 64-Step Motion Sequencer & Arpeggiator
- * Zero-jitter Web Audio lookahead scheduling, motion parameter lanes, probability & ratcheting
+ * Barnestorm S-1001 Tweak Synth - 64-Step Motion Sequencer & Arpeggiator
+ * Web Audio clock-based lookahead scheduling, parameter locks, probability, and ratcheting
  */
 
 class S1Sequencer {
@@ -43,14 +43,15 @@ class S1Sequencer {
       'envAttack', 'envDecay', 'envSustain', 'envRelease',
       'lfoRate', 'lfoPitchDepth', 'lfoFilterDepth', 'lfoPwmDepth',
       'fxChorusSend', 'fxDelaySend', 'fxDelayTime', 'fxDelayFeedback', 'fxReverbSend',
-      'portamento', 'masterVolume'
+      'portamento', 'masterVolume', 'tempo'
     ];
     motionParams.forEach(p => {
-      this.motionData[p] = new Float32Array(64).fill(-1);
+      this.motionData[p] = new Float64Array(64).fill(Number.NaN);
     });
 
     // Arpeggiator state
     this.arpHeldNotes = [];
+    this.arpHeldNotesBySource = new Map();
     this.arpIndex = 0;
     this.arpMode = 'up';
     this.arpRate = 0.25;
@@ -60,9 +61,11 @@ class S1Sequencer {
     this.scheduleAheadTime = 0.1;
     this.nextStepTime = 0.0;
     this.timerId = null;
+    this.playbackGeneration = 0;
+    this.activeSequencerNotes = new Set();
 
-    // Step Edit Mode: 'select', 'gate', 'prob'
-    this.editMode = 'select';
+    // Step Edit Mode: 'note', 'prob', 'plock'
+    this.editMode = 'note';
 
     // Callbacks for UI updates
     this.onStepTick = null;
@@ -132,16 +135,13 @@ class S1Sequencer {
     this.engine.ensureAudioContext();
 
     this.isPlaying = true;
+    this.playbackGeneration++;
     if (this.isStepLoop) {
       this.currentStep = this.stepLoopStart;
     } else if (this.isPageLoop) {
-      const loopStartStep = this.pageLoopStart * 16;
-      const loopEndStep = (this.pageLoopEnd + 1) * 16;
-      if (this.currentStep < loopStartStep || this.currentStep >= loopEndStep) {
-        this.currentStep = loopStartStep;
-      }
+      this.currentStep = this.pageLoopStart * 16;
     } else {
-      this.currentStep = this.currentPage * 16;
+      this.currentStep = 0;
     }
     this.nextStepTime = (this.engine.ctx ? this.engine.ctx.currentTime : 0) + 0.05;
 
@@ -154,11 +154,12 @@ class S1Sequencer {
   stop() {
     if (!this.isPlaying) return;
     this.isPlaying = false;
+    this.playbackGeneration++;
     if (this.timerId) {
       clearInterval(this.timerId);
       this.timerId = null;
     }
-    this.engine.allNotesOff();
+    this.releaseSequencerNotes();
 
     if (this.onPlayChange) this.onPlayChange(false);
   }
@@ -257,16 +258,19 @@ class S1Sequencer {
     if (!ctx) return;
     const delayFromNow = Math.max(0, time - ctx.currentTime);
     const releaseTime = (stepParams && stepParams.envRelease !== undefined) ? stepParams.envRelease : null;
+    const generation = this.playbackGeneration;
 
-    setTimeout(() => {
-      if (this.isPlaying) {
-        this.engine.triggerNoteOn(note, velocity, stepParams);
+    window.setTimeout(() => {
+      if (this.isPlaying && generation === this.playbackGeneration) {
+        this.engine.triggerNoteOn(note, velocity, stepParams, 'sequencer');
+        this.activeSequencerNotes.add(note);
       }
     }, delayFromNow * 1000);
 
-    setTimeout(() => {
-      if (this.isPlaying) {
-        this.engine.triggerNoteOff(note, releaseTime);
+    window.setTimeout(() => {
+      if (this.isPlaying && generation === this.playbackGeneration) {
+        this.engine.triggerNoteOff(note, releaseTime, 'sequencer');
+        this.activeSequencerNotes.delete(note);
       }
     }, (delayFromNow + duration) * 1000);
   }
@@ -280,7 +284,7 @@ class S1Sequencer {
     let hasParam = false;
     for (const [param, lane] of Object.entries(this.motionData)) {
       const val = lane[stepIdx];
-      if (val !== -1 && val !== undefined) {
+      if (Number.isFinite(val)) {
         stepParams[param] = val;
         hasParam = true;
       }
@@ -296,7 +300,7 @@ class S1Sequencer {
   getStepParam(stepIdx, paramName) {
     if (stepIdx === null || stepIdx === undefined || stepIdx < 0 || stepIdx >= this.totalSteps) return null;
     const lane = this.motionData[paramName];
-    if (lane && lane[stepIdx] !== -1 && lane[stepIdx] !== undefined) {
+    if (lane && Number.isFinite(lane[stepIdx])) {
       return lane[stepIdx];
     }
     return null;
@@ -305,7 +309,7 @@ class S1Sequencer {
   setStepParam(stepIdx, paramName, value) {
     if (stepIdx === null || stepIdx === undefined || stepIdx < 0 || stepIdx >= this.totalSteps) return;
     if (!this.motionData[paramName]) {
-      this.motionData[paramName] = new Float32Array(64).fill(-1);
+      this.motionData[paramName] = new Float64Array(64).fill(Number.NaN);
     }
     this.motionData[paramName][stepIdx] = value;
   }
@@ -313,7 +317,7 @@ class S1Sequencer {
   applyMotion(stepIdx, time) {
     for (const [param, lane] of Object.entries(this.motionData)) {
       const val = lane[stepIdx];
-      if (val !== -1 && val !== undefined) {
+      if (Number.isFinite(val)) {
         this.engine.setParam(param, val);
       }
     }
@@ -321,15 +325,40 @@ class S1Sequencer {
 
   clearMotion() {
     for (const param in this.motionData) {
-      this.motionData[param].fill(-1);
+      this.motionData[param].fill(Number.NaN);
     }
   }
 
   // =========================================================================
   // ARPEGGIATOR
   // =========================================================================
-  setArpHeldNotes(notes) {
-    this.arpHeldNotes = [...notes].sort((a, b) => a - b);
+  setArpHeldNotes(notes, source = 'default') {
+    this.arpHeldNotesBySource.set(source, new Set(notes));
+    this.refreshArpHeldNotes();
+  }
+
+  addArpHeldNote(note, source = 'default') {
+    const sourceNotes = this.arpHeldNotesBySource.get(source) || new Set();
+    sourceNotes.add(note);
+    this.arpHeldNotesBySource.set(source, sourceNotes);
+    this.refreshArpHeldNotes();
+  }
+
+  removeArpHeldNote(note, source = 'default') {
+    const sourceNotes = this.arpHeldNotesBySource.get(source);
+    if (sourceNotes) {
+      sourceNotes.delete(note);
+      if (sourceNotes.size === 0) this.arpHeldNotesBySource.delete(source);
+    }
+    this.refreshArpHeldNotes();
+  }
+
+  refreshArpHeldNotes() {
+    const allNotes = new Set();
+    this.arpHeldNotesBySource.forEach((notes) => {
+      notes.forEach((note) => allNotes.add(note));
+    });
+    this.arpHeldNotes = [...allNotes].sort((a, b) => a - b);
     if (this.arpIndex >= this.arpHeldNotes.length) {
       this.arpIndex = 0;
     }
@@ -356,8 +385,8 @@ class S1Sequencer {
   // =========================================================================
   // STEP EDITING & PATTERN MODIFICATIONS
   // =========================================================================
-  // Pressing a STEP SELECT key. In 'select' mode this selects the step for
-  // note editing; in 'prob'/'ratchet' mode it cycles that step's property.
+  // Pressing a STEP SELECT key selects it for the active edit mode. Repeated
+  // presses change gate length in NOTE mode or probability in PROB mode.
   handleStepSelectPress(localIndex) {
     const stepIdx = (this.currentPage * 16) + localIndex;
     const step = this.steps[stepIdx];
@@ -387,7 +416,7 @@ class S1Sequencer {
         changed = false;
       }
     } else {
-      // Default SELECT mode: first click selects the step, repeated clicks cycle gate length up to the end of the page
+      // NOTE mode selects the step for note entry; repeated presses cycle gate length.
       if (this.selectedStep === stepIdx) {
         const localPos = stepIdx % 16;
         const maxGate = 16 - localPos;
@@ -396,7 +425,6 @@ class S1Sequencer {
         changed = true;
       } else {
         this.selectedStep = stepIdx;
-        changed = false;
       }
     }
 
@@ -406,19 +434,33 @@ class S1Sequencer {
   // Pressing a NOTE key while a step is selected adds/removes that note
   // from the selected step's chord. No-op if no step is selected.
   toggleNoteOnSelectedStep(midiNote) {
-    if (this.selectedStep === null) return null;
+    if (this.editMode !== 'note' || this.selectedStep === null) return null;
     const step = this.steps[this.selectedStep];
     if (!step) return null;
 
     if (step.notes.has(midiNote)) {
       step.notes.delete(midiNote);
+      if (step.notes.size === 0) step.gateLength = 1;
     } else {
       step.notes.add(midiNote);
     }
     return step;
   }
 
+  releaseSequencerNotes() {
+    this.activeSequencerNotes.forEach((note) => {
+      this.engine.triggerNoteOff(note, null, 'sequencer');
+    });
+    this.activeSequencerNotes.clear();
+  }
+
+  invalidateQueuedPlayback() {
+    this.playbackGeneration++;
+    this.releaseSequencerNotes();
+  }
+
   clearPattern() {
+    this.invalidateQueuedPlayback();
     this.initSteps();
     this.clearMotion();
     this.selectedStep = null;
@@ -426,6 +468,13 @@ class S1Sequencer {
 
   loadPattern(patternData) {
     if (!patternData) return;
+
+    // A loaded pattern is a complete replacement, not a partial overlay.
+    this.invalidateQueuedPlayback();
+    this.initSteps();
+    this.clearMotion();
+    this.selectedStep = null;
+
     if (patternData.steps) {
       for (let i = 0; i < Math.min(patternData.steps.length, this.totalSteps); i++) {
         const src = patternData.steps[i];

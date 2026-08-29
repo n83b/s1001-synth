@@ -1,6 +1,6 @@
 /**
- * Roland AIRA Compact S-1 Tweak Synth - UI & Interaction Controller
- * Rotary knobs, 7-segment LED screen, OLED oscilloscope, OSC Draw canvas, MIDI & Key bindings
+ * Barnestorm S-1001 Tweak Synth - UI & Interaction Controller
+ * Rotary knobs, status display, oscilloscope, OSC Draw canvas, MIDI, and key bindings
  */
 
 class S1UIController {
@@ -10,9 +10,14 @@ class S1UIController {
 
     this.currentOctave = 0; // Center octave: 0 (range -3 to +3, 0 = C4/60)
     this.displayTimeout = null;
+    this.isStepClearPending = false;
+    this.isPatternClearPending = false;
+    this.storageKey = 'barnestorm-s1001-state-v2';
+    this.persistenceTimeout = null;
 
     // Active playing notes
     this.pressedKeys = new Set();
+    this.pressedPointerNotes = new Map();
 
     // DOM Elements
     this.initElements();
@@ -24,6 +29,7 @@ class S1UIController {
     this.initDrawModal();
     this.initMidi();
     this.initRecorder();
+    this.initPersistence();
   }
 
   initElements() {
@@ -40,7 +46,7 @@ class S1UIController {
   // =========================================================================
   // 7-SEGMENT LED DISPLAY FORMATTER
   // =========================================================================
-  setDisplay(text, subtext = '') {
+  setDisplay(text, subtext = '', persistent = false) {
     if (!this.seg1 || !this.seg2 || !this.seg3 || !this.seg4) return;
     const chars = (text + '    ').substring(0, 4).toUpperCase();
     this.seg1.textContent = chars[0];
@@ -53,15 +59,19 @@ class S1UIController {
     }
 
     if (this.displayTimeout) clearTimeout(this.displayTimeout);
-    this.displayTimeout = setTimeout(() => {
-      this.seg1.textContent = 'S';
-      this.seg2.textContent = '-';
-      this.seg3.textContent = '0';
-      this.seg4.textContent = '1';
-      if (this.subInfo) {
-        this.subInfo.textContent = `READY • TEMPO ${this.engine.params.tempo}`;
-      }
-    }, 2500);
+    this.displayTimeout = null;
+
+    if (!persistent) {
+      this.displayTimeout = setTimeout(() => {
+        this.seg1.textContent = 'S';
+        this.seg2.textContent = '-';
+        this.seg3.textContent = '0';
+        this.seg4.textContent = '1';
+        if (this.subInfo) {
+          this.subInfo.textContent = `READY • TEMPO ${this.engine.params.tempo}`;
+        }
+      }, 2500);
+    }
   }
 
   formatOctaveText(oct) {
@@ -89,6 +99,33 @@ class S1UIController {
     this.updateNoteKeysHighlight();
   }
 
+  moveSelectedStep(direction) {
+    if (this.seq.selectedStep === null) return false;
+
+    const targetStep = Math.max(
+      0,
+      Math.min(this.seq.totalSteps - 1, this.seq.selectedStep + direction)
+    );
+    if (targetStep === this.seq.selectedStep) return false;
+
+    this.seq.selectedStep = targetStep;
+    this.seq.currentPage = Math.floor(targetStep / this.seq.stepsPerPage);
+
+    const step = this.seq.steps[targetStep];
+    if (step && step.notes.size > 0) {
+      const baseNote = Math.min(...step.notes);
+      this.setOctave(Math.floor((baseNote - 60) / 12), false);
+    }
+
+    this.updatePageButtonsUI();
+    this.updateStepSelectKeysUI();
+    this.updateNoteKeysHighlight();
+    this.updateAllKnobsVisual();
+    this.setDisplay(`S${(targetStep + 1).toString().padStart(3, '0')}`, `STEP ${targetStep + 1} SELECTED`);
+    this.scheduleSessionSave();
+    return true;
+  }
+
   // =========================================================================
   // ROTARY KNOB CONTROLLER
   // =========================================================================
@@ -100,8 +137,17 @@ class S1UIController {
       const min = parseFloat(knob.dataset.min);
       const max = parseFloat(knob.dataset.max);
       const def = parseFloat(knob.dataset.default);
+      const stepSize = parseFloat(knob.dataset.step) || 0;
+      const stepDecimals = knob.dataset.step && knob.dataset.step.includes('.')
+        ? knob.dataset.step.split('.')[1].length
+        : 0;
       const isExp = knob.dataset.curve === 'exp';
       const label = knob.dataset.label || paramName;
+      const quantizeValue = (value) => {
+        if (stepSize <= 0) return value;
+        const quantized = Math.round(value / stepSize) * stepSize;
+        return Number(quantized.toFixed(stepDecimals));
+      };
 
       const initialVal = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
       this.updateKnobVisual(knob, initialVal, min, max, isExp);
@@ -150,9 +196,7 @@ class S1UIController {
           newVal = min + normVal * (max - min);
         }
 
-        if (knob.dataset.step && parseFloat(knob.dataset.step) >= 1) {
-          newVal = Math.round(newVal);
-        }
+        newVal = Math.max(min, Math.min(max, quantizeValue(newVal)));
 
         this.engine.setParam(paramName, newVal);
         this.seq.recordMotion(paramName, newVal);
@@ -190,8 +234,8 @@ class S1UIController {
         } else {
           cur = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
         }
-        const step = (max - min) * 0.025 * (e.deltaY < 0 ? 1 : -1);
-        const newVal = Math.max(min, Math.min(max, cur + step));
+        const wheelDelta = (max - min) * 0.025 * (e.deltaY < 0 ? 1 : -1);
+        const newVal = Math.max(min, Math.min(max, quantizeValue(cur + wheelDelta)));
         this.engine.setParam(paramName, newVal);
         this.seq.recordMotion(paramName, newVal);
         if (this.seq.selectedStep !== null && this.seq.isRecordingMotion) {
@@ -312,8 +356,11 @@ class S1UIController {
       });
 
       this.presetSelect.addEventListener('change', (e) => {
+        const presetIndex = parseInt(e.target.value, 10);
+        if (!Number.isInteger(presetIndex)) return;
+
         this.engine.ensureAudioContext();
-        this.loadPresetIndex(parseInt(e.target.value, 10));
+        this.loadPresetIndex(presetIndex);
       });
 
       this.loadPresetIndex(0);
@@ -338,10 +385,26 @@ class S1UIController {
     }
   }
 
+  updateModeButtonStates() {
+    const groups = [
+      ['data-voice-mode', this.engine.params.voiceMode],
+      ['data-sub-mode', this.engine.params.subMode],
+      ['data-lfo-wave', this.engine.params.lfoWave],
+      ['data-chorus-mode', this.engine.params.chorusMode]
+    ];
+
+    groups.forEach(([attribute, activeValue]) => {
+      document.querySelectorAll(`[${attribute}]`).forEach((button) => {
+        button.classList.toggle('active', button.getAttribute(attribute) === activeValue);
+      });
+    });
+  }
+
   loadPresetIndex(idx) {
     const preset = window.S1_PRESETS[idx];
     if (!preset) return;
 
+    this.engine.resetPatch();
     for (const [key, val] of Object.entries(preset.params)) {
       this.engine.setParam(key, val);
       const knob = document.querySelector(`.rotary-knob[data-param="${key}"]`);
@@ -359,6 +422,8 @@ class S1UIController {
       if (tempoKnob) this.updateKnobVisual(tempoKnob, preset.tempo, 40, 240, false);
     }
 
+    this.updateModeButtonStates();
+
     if (preset.pattern) {
       this.seq.loadPattern(preset.pattern);
       this.updateStepSelectKeysUI();
@@ -371,19 +436,347 @@ class S1UIController {
   }
 
   randomizePatternAndSound() {
-    const scale = [48, 51, 53, 55, 58, 60, 63, 65, 67, 70, 72];
-    for (let i = 0; i < 16; i++) {
+    const choose = (values) => values[Math.floor(Math.random() * values.length)];
+    const randomBetween = (min, max) => min + (Math.random() * (max - min));
+    const randomExp = (min, max) => min * Math.pow(max / min, Math.random());
+    const scale = [36, 39, 41, 43, 46, 48, 51, 53, 55, 58, 60, 63, 65, 67, 70, 72];
+
+    const randomizedParams = {
+      voiceMode: choose(['poly', 'mono', 'unison', 'chord']),
+      chordType: choose(['maj', 'min', 'min7', 'maj7', 'sus4']),
+      portamento: randomBetween(0, 0.18),
+      oscSaw: randomBetween(0.25, 1),
+      oscSquare: randomBetween(0.1, 1),
+      oscPwm: randomBetween(0.15, 0.85),
+      oscSub: randomBetween(0, 0.75),
+      subMode: choose(['sub1', 'sub2', 'subPulse']),
+      oscNoise: randomBetween(0, 0.18),
+      oscDrawMix: randomBetween(0, 0.65),
+      oscChop: Math.random() > 0.55 ? randomBetween(0.15, 0.8) : 0,
+      oscChopComb: randomBetween(0.1, 0.7),
+      filterCutoff: randomExp(350, 10000),
+      filterResonance: randomBetween(0, 16),
+      filterHpf: randomExp(10, 450),
+      filterEnvDepth: randomBetween(-0.35, 0.9),
+      filterKeyFollow: randomBetween(0.1, 0.9),
+      drive: randomBetween(0, 0.45),
+      envAttack: randomExp(0.003, 0.45),
+      envDecay: randomExp(0.08, 1.8),
+      envSustain: randomBetween(0.05, 0.8),
+      envRelease: randomExp(0.08, 1.8),
+      lfoRate: randomExp(0.15, 14),
+      lfoWave: choose(['triangle', 'saw', 'square', 'sh']),
+      lfoPitchDepth: randomBetween(0, 0.08),
+      lfoFilterDepth: randomBetween(0, 0.35),
+      lfoPwmDepth: randomBetween(0.1, 0.8),
+      fxChorusSend: randomBetween(0, 0.65),
+      chorusMode: choose(['off', 'type1', 'type2', 'type12']),
+      fxDelaySend: randomBetween(0, 0.55),
+      fxDelayTime: randomBetween(0.08, 0.65),
+      fxDelayFeedback: randomBetween(0.1, 0.65),
+      fxReverbSend: randomBetween(0, 0.65)
+    };
+
+    Object.entries(randomizedParams).forEach(([param, value]) => {
+      const sanitized = this.sanitizeParameterValue(param, value, value);
+      randomizedParams[param] = sanitized;
+      this.engine.setParam(param, sanitized);
+    });
+
+    this.seq.clearPattern();
+    for (let i = 0; i < this.seq.totalSteps; i++) {
       const step = this.seq.steps[i];
-      step.notes = new Set();
-      if (Math.random() > 0.35) {
-        step.notes.add(scale[Math.floor(Math.random() * scale.length)]);
+      if (Math.random() > 0.38) {
+        step.notes.add(choose(scale));
+        if (randomizedParams.voiceMode === 'poly' && Math.random() > 0.82) {
+          step.notes.add(choose(scale));
+        }
       }
-      step.substep = Math.random() > 0.8 ? 2 : 1;
-      step.probability = Math.random() > 0.85 ? 0.75 : 1.0;
+      step.velocity = randomBetween(0.65, 1);
+      step.substep = Math.random() > 0.86 ? choose([2, 3, 4]) : 1;
+      step.probability = Math.random() > 0.82 ? choose([0.25, 0.5, 0.75]) : 1;
+      const maxGateLength = 16 - (i % 16);
+      step.gateLength = Math.random() > 0.9
+        ? Math.min(choose([2, 3, 4]), maxGateLength)
+        : 1;
     }
+
+    this.updateModeButtonStates();
+    this.updateAllKnobsVisual();
     this.updateStepSelectKeysUI();
     this.updateNoteKeysHighlight();
-    this.setDisplay('rAnd', 'PATTERN RANDOMIZED');
+    this.setDisplay('rAnd', 'PATTERN & SOUND RANDOMIZED');
+  }
+
+  // =========================================================================
+  // LOCAL SESSION PERSISTENCE
+  // =========================================================================
+  initPersistence() {
+    const restored = this.restoreSession();
+    if (restored) {
+      this.markPresetAsRestoredSession();
+      this.setDisplay('rStr', 'SESSION RESTORED');
+    }
+
+    const scheduleSave = () => this.scheduleSessionSave();
+    document.addEventListener('pointerup', scheduleSave);
+    document.addEventListener('click', scheduleSave);
+    document.addEventListener('change', scheduleSave);
+    document.addEventListener('wheel', (event) => {
+      if (event.target.closest && event.target.closest('.rotary-knob')) scheduleSave();
+    }, { passive: true });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') this.saveSession();
+    });
+    window.addEventListener('beforeunload', () => this.saveSession());
+  }
+
+  scheduleSessionSave() {
+    if (this.persistenceTimeout) window.clearTimeout(this.persistenceTimeout);
+    this.persistenceTimeout = window.setTimeout(() => {
+      this.persistenceTimeout = null;
+      this.saveSession();
+    }, 400);
+  }
+
+  getSessionState() {
+    const motion = {};
+    Object.entries(this.seq.motionData).forEach(([param, lane]) => {
+      motion[param] = Array.from(lane);
+    });
+
+    return {
+      version: 2,
+      params: { ...this.engine.params },
+      drawnWavePoints: Array.from(this.engine.drawnWavePoints),
+      octave: this.currentOctave,
+      editMode: this.seq.editMode,
+      selectedStep: this.seq.selectedStep,
+      pattern: {
+        steps: this.seq.steps.map((step) => ({
+          notes: Array.from(step.notes),
+          velocity: step.velocity,
+          probability: step.probability,
+          gateLength: step.gateLength,
+          substep: step.substep
+        })),
+        motion,
+        pageLoop: {
+          enabled: this.seq.isPageLoop,
+          start: this.seq.pageLoopStart,
+          end: this.seq.pageLoopEnd
+        },
+        currentPage: this.seq.currentPage
+      }
+    };
+  }
+
+  saveSession() {
+    try {
+      window.localStorage.setItem(this.storageKey, JSON.stringify(this.getSessionState()));
+    } catch (error) {
+      console.warn('Unable to save S-1001 session:', error);
+    }
+  }
+
+  sanitizeParameterValue(param, value, fallback = null) {
+    const knob = document.querySelector(`.rotary-knob[data-param="${param}"]`);
+    if (knob) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+
+      const min = parseFloat(knob.dataset.min);
+      const max = parseFloat(knob.dataset.max);
+      const step = parseFloat(knob.dataset.step) || 0;
+      let sanitized = Math.max(min, Math.min(max, value));
+      if (step > 0) sanitized = Math.round(sanitized / step) * step;
+      return sanitized;
+    }
+
+    const enumValues = {
+      voiceMode: ['poly', 'mono', 'unison', 'chord'],
+      chordType: ['maj', 'min', 'min7', 'maj7', 'sus4'],
+      subMode: ['sub1', 'sub2', 'subPulse'],
+      lfoWave: ['triangle', 'saw', 'square', 'sh'],
+      chorusMode: ['off', 'type1', 'type2', 'type12']
+    };
+    return enumValues[param] && enumValues[param].includes(value) ? value : fallback;
+  }
+
+  sanitizeStoredPattern(pattern) {
+    const sourceSteps = Array.isArray(pattern.steps) ? pattern.steps : [];
+    const steps = Array.from({ length: this.seq.totalSteps }, (_, index) => {
+      const source = sourceSteps[index];
+      const step = source && typeof source === 'object' ? source : {};
+      const notes = Array.isArray(step.notes)
+        ? [...new Set(step.notes
+          .filter((note) => Number.isInteger(note) && note >= 0 && note <= 127))]
+        : [];
+      const maxGateLength = 16 - (index % 16);
+      const velocity = Number.isFinite(step.velocity) ? Math.max(0, Math.min(1, step.velocity)) : 0.9;
+      const probability = Number.isFinite(step.probability) ? Math.max(0, Math.min(1, step.probability)) : 1;
+      const gateLength = Number.isFinite(step.gateLength)
+        ? Math.max(1, Math.min(maxGateLength, Math.round(step.gateLength)))
+        : 1;
+      const substep = Number.isFinite(step.substep)
+        ? Math.max(1, Math.min(4, Math.round(step.substep)))
+        : 1;
+
+      return { notes, velocity, probability, gateLength, substep };
+    });
+
+    const motion = {};
+    const sourceMotion = pattern.motion && typeof pattern.motion === 'object' ? pattern.motion : {};
+    Object.keys(this.seq.motionData).forEach((param) => {
+      const sourceLane = Array.isArray(sourceMotion[param]) ? sourceMotion[param] : [];
+      motion[param] = Array.from({ length: this.seq.totalSteps }, (_, index) => {
+        const value = sourceLane[index];
+        if (value === null || value === undefined) return Number.NaN;
+        const sanitized = this.sanitizeParameterValue(param, value, null);
+        return typeof sanitized === 'number' ? sanitized : Number.NaN;
+      });
+    });
+
+    const sourceLoop = pattern.pageLoop && typeof pattern.pageLoop === 'object'
+      ? pattern.pageLoop
+      : {};
+    const start = Number.isInteger(sourceLoop.start) ? Math.max(0, Math.min(3, sourceLoop.start)) : 0;
+    const end = Number.isInteger(sourceLoop.end) ? Math.max(0, Math.min(3, sourceLoop.end)) : start;
+    const currentPage = Number.isInteger(pattern.currentPage)
+      ? Math.max(0, Math.min(3, pattern.currentPage))
+      : start;
+
+    return {
+      steps,
+      motion,
+      pageLoop: {
+        enabled: typeof sourceLoop.enabled === 'boolean' ? sourceLoop.enabled : true,
+        start: Math.min(start, end),
+        end: Math.max(start, end)
+      },
+      currentPage
+    };
+  }
+
+  restoreSession() {
+    let state;
+    try {
+      const savedState = window.localStorage.getItem(this.storageKey);
+      if (!savedState) return false;
+      state = JSON.parse(savedState);
+    } catch (error) {
+      console.warn('Unable to restore S-1001 session:', error);
+      return false;
+    }
+
+    if (!state || state.version !== 2 || !state.params || !state.pattern) return false;
+
+    try {
+      this.engine.resetPatch();
+      Object.entries(state.params).forEach(([param, value]) => {
+        if (!(param in this.engine.defaultParams)) return;
+        const sanitized = this.sanitizeParameterValue(param, value, this.engine.defaultParams[param]);
+        this.engine.setParam(param, sanitized);
+      });
+
+      if (Array.isArray(state.drawnWavePoints) && state.drawnWavePoints.length === 64) {
+        const points = state.drawnWavePoints
+          .map((value) => Number.isFinite(value) ? Math.max(-2, Math.min(2, value)) : 0);
+        this.engine.setDrawnWaveform(new Float32Array(points));
+      }
+
+      const pattern = this.sanitizeStoredPattern(state.pattern);
+      this.seq.loadPattern(pattern);
+      this.seq.currentPage = pattern.currentPage;
+
+      const validEditModes = ['note', 'prob', 'plock'];
+      this.seq.editMode = validEditModes.includes(state.editMode) ? state.editMode : 'note';
+      this.seq.isRecordingMotion = this.seq.editMode === 'plock';
+
+      const selectedStep = state.selectedStep === null ? null : Number(state.selectedStep);
+      this.seq.selectedStep = selectedStep !== null
+        && Number.isInteger(selectedStep)
+        && selectedStep >= 0
+        && selectedStep < this.seq.totalSteps
+        ? selectedStep
+        : null;
+
+      const octave = Number(state.octave);
+      this.setOctave(Number.isFinite(octave) ? Math.round(octave) : 0, false);
+
+      document.querySelectorAll('[data-step-edit-mode]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.stepEditMode === this.seq.editMode);
+      });
+      this.updateModeButtonStates();
+      this.updateAllKnobsVisual();
+      this.updateStepSelectKeysUI();
+      this.updateNoteKeysHighlight();
+      this.updatePageButtonsUI();
+      return true;
+    } catch (error) {
+      console.warn('Stored S-1001 session was invalid and has been ignored:', error);
+      try { window.localStorage.removeItem(this.storageKey); } catch (storageError) {}
+      return false;
+    }
+  }
+
+  markPresetAsRestoredSession() {
+    if (!this.presetSelect) return;
+
+    let option = this.presetSelect.querySelector('option[value="session"]');
+    if (!option) {
+      option = document.createElement('option');
+      option.value = 'session';
+      option.textContent = 'RESTORED SESSION';
+      this.presetSelect.prepend(option);
+    }
+    this.presetSelect.value = 'session';
+  }
+
+  setStepClearPending(pending) {
+    this.isStepClearPending = pending;
+    const clearButton = document.getElementById('btn-clear-step');
+    if (clearButton) clearButton.classList.toggle('confirm-clear', pending);
+    document.querySelectorAll('[data-step-edit-mode]').forEach((button) => {
+      button.classList.toggle('clear-target', pending);
+    });
+  }
+
+  clearSelectedStepData(type) {
+    const stepIndex = this.seq.selectedStep;
+    if (stepIndex === null) {
+      this.setStepClearPending(false);
+      this.setDisplay('NOSt', 'NO STEP SELECTED');
+      return;
+    }
+
+    this.seq.invalidateQueuedPlayback();
+    const step = this.seq.steps[stepIndex];
+    if (type === 'note') {
+      step.notes.clear();
+      step.gateLength = 1;
+      this.setDisplay('NCLr', `STEP ${stepIndex + 1} NOTES & GATE CLEARED`);
+    } else if (type === 'plock') {
+      Object.values(this.seq.motionData).forEach((lane) => {
+        lane[stepIndex] = Number.NaN;
+      });
+      this.setDisplay('PCLr', `STEP ${stepIndex + 1} PARAMETER LOCKS CLEARED`);
+    } else if (type === 'prob') {
+      step.probability = 1;
+      this.setDisplay('PrCL', `STEP ${stepIndex + 1} PROBABILITY RESET TO 100%`);
+    }
+
+    this.setStepClearPending(false);
+    this.updateStepSelectKeysUI();
+    this.updateNoteKeysHighlight();
+    this.updateAllKnobsVisual();
+    this.scheduleSessionSave();
+  }
+
+  setPatternClearPending(pending) {
+    this.isPatternClearPending = pending;
+    const clearButton = document.getElementById('btn-clear-all-pattern');
+    if (clearButton) clearButton.classList.toggle('confirm-clear', pending);
   }
 
   // =========================================================================
@@ -515,11 +908,15 @@ class S1UIController {
     editModeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         this.engine.ensureAudioContext();
+        if (this.isStepClearPending) {
+          this.clearSelectedStepData(btn.dataset.stepEditMode);
+          return;
+        }
+
         editModeBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.seq.editMode = btn.dataset.stepEditMode;
         this.seq.isRecordingMotion = (this.seq.editMode === 'plock');
-        this.seq.selectedStep = null;
         this.updateStepSelectKeysUI();
         this.updateNoteKeysHighlight();
         this.updateAllKnobsVisual();
@@ -528,14 +925,54 @@ class S1UIController {
         } else if (this.seq.editMode === 'plock') {
           this.setDisplay('P-LC', 'EDIT: P-LOC (CLICK A STEP AND TWEAK KNOBS TO LOCK)');
         } else {
-          this.setDisplay('SELC', 'EDIT: SELECT / GATE LENGTH');
+          this.setDisplay('NOtE', 'EDIT: NOTE / GATE LENGTH');
         }
       });
     });
 
-    const btnClear = document.getElementById('btn-clear-pattern');
-    btnClear.addEventListener('click', () => {
+    const btnClearStep = document.getElementById('btn-clear-step');
+    const btnClearPattern = document.getElementById('btn-clear-all-pattern');
+    const cancelClearModes = (event) => {
+      const pressedControl = event.target.closest && event.target.closest('button, .step-key');
+      if (!pressedControl) return;
+
+      const isStepClearTarget = pressedControl.matches('[data-step-edit-mode]');
+      if (this.isStepClearPending && pressedControl !== btnClearStep && !isStepClearTarget) {
+        this.setStepClearPending(false);
+        this.setDisplay('Abrt', 'STEP CLEAR ABORTED');
+      }
+      if (this.isPatternClearPending && pressedControl !== btnClearPattern) {
+        this.setPatternClearPending(false);
+        this.setDisplay('Abrt', 'CLEAR PATTERN ABORTED');
+      }
+    };
+
+    document.addEventListener('pointerdown', cancelClearModes, true);
+    document.addEventListener('click', cancelClearModes, true);
+
+    btnClearStep.addEventListener('click', () => {
       this.engine.ensureAudioContext();
+
+      if (this.isStepClearPending) {
+        this.setStepClearPending(false);
+        this.setDisplay('Abrt', 'STEP CLEAR CANCELED');
+        return;
+      }
+
+      this.setStepClearPending(true);
+      this.setDisplay('CLr?', 'CLEAR STEP: PRESS NOTE, P-LOC, OR PROB', true);
+    });
+
+    btnClearPattern.addEventListener('click', () => {
+      this.engine.ensureAudioContext();
+
+      if (!this.isPatternClearPending) {
+        this.setPatternClearPending(true);
+        this.setDisplay('CLr?', 'CLEAR ENTIRE PATTERN? PRESS CLR AGAIN', true);
+        return;
+      }
+
+      this.setPatternClearPending(false);
       this.seq.clearPattern();
       this.updateStepSelectKeysUI();
       this.updateNoteKeysHighlight();
@@ -586,31 +1023,35 @@ class S1UIController {
     noteKeys.forEach(key => {
       const noteOffset = parseInt(key.dataset.note, 10) - 60;
 
+      const inputSource = `pointer:${noteOffset}`;
+
       const playNote = () => {
         this.engine.ensureAudioContext();
         const midiNote = 60 + (this.currentOctave * 12) + noteOffset;
-        this.engine.triggerNoteOn(midiNote, 0.9);
+        this.pressedPointerNotes.set(inputSource, midiNote);
+        this.engine.triggerNoteOn(midiNote, 0.9, null, inputSource);
         key.classList.add('key-pressed');
         this.pressedKeys.add(midiNote);
-        if (this.seq.isArpActive) this.seq.setArpHeldNotes(Array.from(this.pressedKeys));
+        this.seq.addArpHeldNote(midiNote, inputSource);
       };
 
       const releaseNote = () => {
-        const midiNote = 60 + (this.currentOctave * 12) + noteOffset;
-        this.engine.triggerNoteOff(midiNote);
+        const midiNote = this.pressedPointerNotes.get(inputSource);
+        if (midiNote === undefined) return;
+
+        this.engine.triggerNoteOff(midiNote, null, inputSource);
         key.classList.remove('key-pressed');
         this.pressedKeys.delete(midiNote);
-        if (this.seq.isArpActive) this.seq.setArpHeldNotes(Array.from(this.pressedKeys));
+        this.pressedPointerNotes.delete(inputSource);
+        this.seq.removeArpHeldNote(midiNote, inputSource);
       };
 
-      key.addEventListener('pointerdown', () => {
+      key.addEventListener('pointerdown', (event) => {
         this.engine.ensureAudioContext();
         playNote();
-        const midiNote = 60 + (this.currentOctave * 12) + noteOffset;
-        const step = this.seq.toggleNoteOnSelectedStep(midiNote);
-        if (step) {
-          this.updateNoteKeysHighlight();
-          this.updateStepSelectKeysUI();
+        if (event.shiftKey) {
+          const midiNote = 60 + (this.currentOctave * 12) + noteOffset;
+          this.toggleNoteForSelectedStep(midiNote);
         }
       });
 
@@ -638,22 +1079,13 @@ class S1UIController {
         this.updateAllKnobsVisual();
 
         const stepNum = (localIdx + 1).toString().padStart(2, '0');
-        if (this.seq.editMode === 'select') {
-          const isSelected = this.seq.selectedStep === (this.seq.currentPage * 16) + localIdx;
+        if (this.seq.editMode === 'note') {
           const gateLen = res && res.step ? (res.step.gateLength || 1) : 1;
           if (res && res.changed) {
-            // Gate incremented on repeated tap
             const dispGate = `G-${gateLen.toString().padStart(2, '0')}`;
             this.setDisplay(dispGate, `STEP ${stepNum} GATE LENGTH: ${gateLen} ${gateLen === 1 ? 'STEP' : 'STEPS'}`);
-          } else if (isSelected) {
-            if (gateLen > 1) {
-              const dispGate = `G-${gateLen.toString().padStart(2, '0')}`;
-              this.setDisplay(dispGate, `STEP ${stepNum} SELECTED (GATE: ${gateLen} STEPS)`);
-            } else {
-              this.setDisplay(`SL${stepNum}`, `STEP ${stepNum} SELECTED`);
-            }
           } else {
-            this.setDisplay('----', 'STEP DESELECTED');
+            this.setDisplay(`Nt${stepNum}`, `STEP ${stepNum} SELECTED FOR NOTE ENTRY`);
           }
         } else if (this.seq.editMode === 'prob') {
           const pct = res && res.step ? Math.round(res.step.probability * 100) : 100;
@@ -700,6 +1132,16 @@ class S1UIController {
       btn.classList.toggle('active', this.seq.currentPage === p);
       btn.classList.toggle('page-looping', isLooping);
     });
+  }
+
+  toggleNoteForSelectedStep(midiNote) {
+    const step = this.seq.toggleNoteOnSelectedStep(midiNote);
+    if (!step) return false;
+
+    this.updateNoteKeysHighlight();
+    this.updateStepSelectKeysUI();
+    this.scheduleSessionSave();
+    return true;
   }
 
   updateNoteKeysHighlight() {
@@ -931,10 +1373,15 @@ class S1UIController {
       setTimeout(() => { midiLed.style.boxShadow = ''; }, 100);
     }
 
+    const inputId = event.target && event.target.id ? event.target.id : 'unknown';
+    const midiSource = `midi:${inputId}:${status & 0x0f}`;
+
     if (command === 9 && velocity > 0) {
-      this.engine.triggerNoteOn(note, velocity / 127);
+      this.engine.triggerNoteOn(note, velocity / 127, null, midiSource);
+      this.seq.addArpHeldNote(note, midiSource);
     } else if (command === 8 || (command === 9 && velocity === 0)) {
-      this.engine.triggerNoteOff(note);
+      this.engine.triggerNoteOff(note, null, midiSource);
+      this.seq.removeArpHeldNote(note, midiSource);
     }
   }
 
@@ -949,6 +1396,8 @@ class S1UIController {
 
     btnRec.addEventListener('click', async () => {
       this.engine.ensureAudioContext();
+      if (this.engine.isStoppingRecording) return;
+
       if (!this.engine.isRecording) {
         const started = this.engine.startRecording();
         if (started) {
@@ -960,14 +1409,14 @@ class S1UIController {
         const blob = await this.engine.stopRecording();
         recLed.classList.remove('recording');
         recLabel.textContent = 'REC WAV';
-        this.setDisplay('SAUE', 'WAV READY');
+        this.setDisplay('SAVE', 'WAV READY');
 
         if (blob) {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none';
           a.href = url;
-          a.download = `Roland_S1_Jam_${Date.now()}.webm`;
+          a.download = `Barnestorm_S1001_Jam_${Date.now()}.wav`;
           document.body.appendChild(a);
           a.click();
           setTimeout(() => {

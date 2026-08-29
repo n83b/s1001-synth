@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Barnestorm S-1001 Tweak Synth</title>
-  <meta name="description" content="Barnestorm S-1001 Tweak Synthesizer — 4-voice ACB synth with OSC Draw, OSC Chop, 64-step Motion Sequencer, and onboard FX.">
+  <meta name="description" content="Barnestorm S-1001 Tweak Synthesizer — 4-voice Web Audio synth with OSC Draw, OSC Chop, a 64-step motion sequencer, and onboard FX.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -12,13 +12,13 @@
 </head>
 <body>
   <div class="groovebox-container">
-    <!-- Main S-1 Synth Unit -->
-    <main class="s1-hardware" id="s1-hardware" role="region" aria-label="Roland AIRA Compact S-1 Synthesizer">
+    <!-- Main S-1001 Synth Unit -->
+    <main class="s1-hardware" id="s1-hardware" role="region" aria-label="Barnestorm S-1001 Tweak Synthesizer">
       
       <!-- Top Brand & Header Bar -->
       <header class="hardware-header">
         <div class="brand-left">
-          <div class="roland-logo">Barnestorm</div>
+          <div class="brand-logo">Barnestorm</div>
         </div>
         <div class="model-center">
           <span class="model-name">S-1001</span>
@@ -108,6 +108,7 @@
                 <!-- Dynamically filled by presets.js -->
               </select>
               <button id="btn-rand-pattern" class="btn-tiny" title="Randomize Pattern & Sound">🎲 RND</button>
+              <button id="btn-clear-all-pattern" class="btn-tiny btn-danger" title="Clear Entire Pattern">CLR</button>
             </div>
           </div>
         </div>
@@ -461,14 +462,14 @@
           <button id="btn-oct-up" class="btn-step-nav" title="Octave Up">OCT + ▶</button>
         </div>
 
-        <!-- Step Edit Mode (SELECT, PROB, P-LOC, CLEAR) -->
+        <!-- Step Edit Mode (NOTE, P-LOC, PROB, CLEAR) -->
         <div class="edit-mode-group">
           <span class="bar-title">EDIT:</span>
           <div class="btn-micro-row">
-            <button class="micro-btn active" data-step-edit-mode="select">SELECT</button>
-            <button class="micro-btn" data-step-edit-mode="prob">PROB</button>
-            <button class="micro-btn" id="btn-ploc" data-step-edit-mode="plock">P-LOC</button>
-            <button id="btn-clear-pattern" class="micro-btn btn-danger" title="Clear Current Pattern">CLEAR</button>
+            <button class="micro-btn active" data-step-edit-mode="note" title="Note Edit (1)">NOTE</button>
+            <button class="micro-btn" id="btn-ploc" data-step-edit-mode="plock" title="Parameter Lock Edit (2)">P-LOC</button>
+            <button class="micro-btn" data-step-edit-mode="prob" title="Probability Edit (3)">PROB</button>
+            <button id="btn-clear-step" class="micro-btn btn-danger" title="Clear Selected Step Data">CLEAR</button>
           </div>
         </div>
       </section>
@@ -495,7 +496,7 @@
           <button class="step-select-key" data-step-select="15" title="Select Step 16"><span class="step-select-led"></span><span class="step-select-num">16</span><span class="step-select-dot"></span></button>
         </div>
 
-        <!-- Note Keys: play live, and add/remove notes on the selected step -->
+        <!-- Note Keys: play live; hold Shift to add/remove notes on the selected step -->
         <div class="step-keyboard-keys" id="step-keyboard-keys">
           <div class="step-key" data-step="0" data-note="60" data-keylabel="C4">
             <div class="step-led"></div>
@@ -632,6 +633,7 @@
       <footer class="hardware-footer">
         <div class="footer-item"><span class="key-hint">QWERTY (Z-M / S-J)</span> Play Live</div>
         <div class="footer-item"><span class="key-hint">SPACEBAR</span> Play / Stop</div>
+        <div class="footer-item"><span class="key-hint">SHIFT + Note</span> Toggle Step Note</div>
         <div class="footer-item"><span class="key-hint">SHIFT + Drag Knob</span> Fine Tuning</div>
         <div class="footer-item"><span class="key-hint">Double Click Knob</span> Reset Value</div>
       </footer>
@@ -642,11 +644,11 @@
     <div class="modal-overlay" id="draw-modal" hidden>
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-header">
-          <h2 id="modal-title" class="modal-title">S-1 OSC DRAW — CUSTOM WAVEFORM DESIGNER</h2>
+          <h2 id="modal-title" class="modal-title">S-1001 OSC DRAW — CUSTOM WAVEFORM DESIGNER</h2>
           <button id="btn-close-draw" class="btn-close" aria-label="Close modal">✕</button>
         </div>
         <div class="modal-body">
-          <p class="modal-desc">Draw your single-cycle waveform directly on the grid. S-1 synthesizes Fourier wave coefficients in real time.</p>
+          <p class="modal-desc">Draw your single-cycle waveform directly on the grid. S-1001 synthesizes Fourier wave coefficients in real time.</p>
           <div class="draw-canvas-wrapper">
             <canvas id="draw-canvas" width="512" height="200"></canvas>
           </div>

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ROLAND AIRA COMPACT S-1 TWEAK SYNTHESIZER - DESIGN SYSTEM & STYLES
+   BARNESTORM S-1001 TWEAK SYNTHESIZER - DESIGN SYSTEM & STYLES
    ========================================================================== */
 
 :root {
@@ -121,7 +121,7 @@ body {
   gap: 12px;
 }
 
-.roland-logo {
+.brand-logo {
   font-family: var(--font-brand);
   font-size: 24px;
   font-weight: 800;
@@ -759,6 +759,15 @@ body {
 .btn-danger:hover {
   background: rgba(255, 51, 75, 0.15);
   color: #fff;
+}
+
+.btn-danger.confirm-clear,
+.micro-btn.clear-target {
+  background: rgba(255, 51, 75, 0.22);
+  color: #fff;
+  border-color: var(--aira-red);
+  box-shadow: 0 0 10px var(--aira-red-glow);
+  animation: blink 0.55s infinite alternate;
 }
 
 /* ==========================================================================

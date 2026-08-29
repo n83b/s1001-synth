@@ -1,5 +1,5 @@
 /**
- * Roland AIRA Compact S-1 Tweak Synth - Curated Factory Sound & Pattern Presets
+ * Barnestorm S-1001 Tweak Synth - Curated Factory Sound & Pattern Presets
  */
 
 const S1_PRESETS = [

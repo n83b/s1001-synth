@@ -1,5 +1,5 @@
 /**
- * Roland AIRA Compact S-1 Tweak Synth - Application Bootstrap & Keyboard Handlers
+ * Barnestorm S-1001 Tweak Synth - Application Bootstrap & Keyboard Handlers
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -52,13 +52,48 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const editModeShortcuts = {
+      '1': 'note',
+      '2': 'plock',
+      '3': 'prob'
+    };
+    if (!e.repeat && editModeShortcuts[e.key]) {
+      e.preventDefault();
+      const modeButton = document.querySelector(`[data-step-edit-mode="${editModeShortcuts[e.key]}"]`);
+      if (modeButton) modeButton.click();
+      return;
+    }
+
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (sequencer.selectedStep !== null) {
+        e.preventDefault();
+        const direction = e.key === 'ArrowLeft' ? -1 : 1;
+        uiController.moveSelectedStep(direction);
+      }
+      return;
+    }
+
+    if (e.key === '-' || e.key === '+') {
+      e.preventDefault();
+      const octaveButtonId = e.key === '-' ? 'btn-oct-down' : 'btn-oct-up';
+      const octaveButton = document.getElementById(octaveButtonId);
+      if (octaveButton) octaveButton.click();
+      return;
+    }
+
     const key = e.key.toLowerCase();
     if (KEY_NOTE_MAP[key] !== undefined && !activeComputerKeys.has(key)) {
       const noteOffset = KEY_NOTE_MAP[key];
       const midiNote = 60 + (uiController.currentOctave * 12) + noteOffset;
 
-      audioEngine.triggerNoteOn(midiNote, 0.9);
+      const inputSource = `computer:${key}`;
+      audioEngine.triggerNoteOn(midiNote, 0.9, null, inputSource);
+      sequencer.addArpHeldNote(midiNote, inputSource);
       activeComputerKeys.set(key, midiNote);
+
+      if (e.shiftKey) {
+        uiController.toggleNoteForSelectedStep(midiNote);
+      }
 
       const stepKey = document.querySelector(`.step-key[data-step="${noteOffset}"]`);
       if (stepKey) stepKey.classList.add('key-pressed');
@@ -69,7 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const key = e.key.toLowerCase();
     if (activeComputerKeys.has(key)) {
       const midiNote = activeComputerKeys.get(key);
-      audioEngine.triggerNoteOff(midiNote);
+      const inputSource = `computer:${key}`;
+      audioEngine.triggerNoteOff(midiNote, null, inputSource);
+      sequencer.removeArpHeldNote(midiNote, inputSource);
       activeComputerKeys.delete(key);
 
       const noteOffset = KEY_NOTE_MAP[key];
@@ -78,5 +115,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  console.log('Roland AIRA Compact S-1 Synth ready!');
+  console.log('Barnestorm S-1001 Tweak Synth ready!');
 });
