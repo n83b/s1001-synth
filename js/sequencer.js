@@ -35,14 +35,19 @@ class S1Sequencer {
     // Currently selected step for note editing (global index 0-63, or null)
     this.selectedStep = null;
 
-    // Motion Automation Lanes
-    this.motionData = {
-      filterCutoff: new Float32Array(64).fill(-1),
-      filterResonance: new Float32Array(64).fill(-1),
-      oscChop: new Float32Array(64).fill(-1),
-      oscDrawMix: new Float32Array(64).fill(-1),
-      drive: new Float32Array(64).fill(-1)
-    };
+    // Motion Automation Lanes for all synth parameters
+    this.motionData = {};
+    const motionParams = [
+      'oscSaw', 'oscSquare', 'oscPwm', 'oscSub', 'oscNoise', 'oscDrawMix', 'oscChop', 'oscChopComb',
+      'filterCutoff', 'filterResonance', 'filterHpf', 'filterEnvDepth', 'filterKeyFollow', 'drive',
+      'envAttack', 'envDecay', 'envSustain', 'envRelease',
+      'lfoRate', 'lfoPitchDepth', 'lfoFilterDepth', 'lfoPwmDepth',
+      'fxChorusSend', 'fxDelaySend', 'fxDelayTime', 'fxDelayFeedback', 'fxReverbSend',
+      'portamento', 'masterVolume'
+    ];
+    motionParams.forEach(p => {
+      this.motionData[p] = new Float32Array(64).fill(-1);
+    });
 
     // Arpeggiator state
     this.arpHeldNotes = [];
@@ -266,13 +271,31 @@ class S1Sequencer {
   }
 
   // =========================================================================
-  // MOTION RECORDING & AUTOMATION
+  // MOTION RECORDING & PER-STEP AUTOMATION
   // =========================================================================
   recordMotion(paramName, value) {
     if (!this.isRecordingMotion || !this.isPlaying) return;
-    if (this.motionData[paramName]) {
-      this.motionData[paramName][this.currentStep] = value;
+    if (!this.motionData[paramName]) {
+      this.motionData[paramName] = new Float32Array(64).fill(-1);
     }
+    this.motionData[paramName][this.currentStep] = value;
+  }
+
+  getStepParam(stepIdx, paramName) {
+    if (stepIdx === null || stepIdx === undefined || stepIdx < 0 || stepIdx >= this.totalSteps) return null;
+    const lane = this.motionData[paramName];
+    if (lane && lane[stepIdx] !== -1 && lane[stepIdx] !== undefined) {
+      return lane[stepIdx];
+    }
+    return null;
+  }
+
+  setStepParam(stepIdx, paramName, value) {
+    if (stepIdx === null || stepIdx === undefined || stepIdx < 0 || stepIdx >= this.totalSteps) return;
+    if (!this.motionData[paramName]) {
+      this.motionData[paramName] = new Float32Array(64).fill(-1);
+    }
+    this.motionData[paramName][stepIdx] = value;
   }
 
   applyMotion(stepIdx, time) {

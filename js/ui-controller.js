@@ -114,7 +114,14 @@ class S1UIController {
         this.engine.ensureAudioContext();
         isDragging = true;
         startY = e.clientY || (e.touches && e.touches[0].clientY);
-        startVal = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
+        let curVal;
+        if (this.seq.selectedStep !== null) {
+          const stepVal = this.seq.getStepParam(this.seq.selectedStep, paramName);
+          curVal = (stepVal !== null && stepVal !== undefined) ? stepVal : (this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def);
+        } else {
+          curVal = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
+        }
+        startVal = curVal;
         document.body.style.cursor = 'ns-resize';
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
@@ -149,6 +156,9 @@ class S1UIController {
 
         this.engine.setParam(paramName, newVal);
         this.seq.recordMotion(paramName, newVal);
+        if (this.seq.selectedStep !== null) {
+          this.seq.setStepParam(this.seq.selectedStep, paramName, newVal);
+        }
         this.updateKnobVisual(knob, newVal, min, max, isExp);
 
         let displayStr = '';
@@ -173,11 +183,20 @@ class S1UIController {
       knob.addEventListener('wheel', (e) => {
         this.engine.ensureAudioContext();
         e.preventDefault();
-        const cur = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
+        let cur;
+        if (this.seq.selectedStep !== null) {
+          const stepVal = this.seq.getStepParam(this.seq.selectedStep, paramName);
+          cur = (stepVal !== null && stepVal !== undefined) ? stepVal : (this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def);
+        } else {
+          cur = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
+        }
         const step = (max - min) * 0.025 * (e.deltaY < 0 ? 1 : -1);
         const newVal = Math.max(min, Math.min(max, cur + step));
         this.engine.setParam(paramName, newVal);
         this.seq.recordMotion(paramName, newVal);
+        if (this.seq.selectedStep !== null) {
+          this.seq.setStepParam(this.seq.selectedStep, paramName, newVal);
+        }
         this.updateKnobVisual(knob, newVal, min, max, isExp);
         this.setDisplay(newVal.toFixed(1), `${label}: ${newVal.toFixed(2)}`);
       }, { passive: false });
@@ -185,6 +204,9 @@ class S1UIController {
       knob.addEventListener('dblclick', () => {
         this.engine.ensureAudioContext();
         this.engine.setParam(paramName, def);
+        if (this.seq.selectedStep !== null) {
+          this.seq.setStepParam(this.seq.selectedStep, paramName, def);
+        }
         this.updateKnobVisual(knob, def, min, max, isExp);
         this.setDisplay('dEF', `${label} RESET`);
       });
@@ -203,6 +225,29 @@ class S1UIController {
 
     knob.style.setProperty('--knob-angle', `${currentAngle}deg`);
     knob.style.setProperty('--knob-rotation', `${rotationDeg}deg`);
+  }
+
+  updateAllKnobsVisual(targetStepIdx = null) {
+    const stepIdx = (targetStepIdx !== null) ? targetStepIdx : this.seq.selectedStep;
+    const knobs = document.querySelectorAll('.rotary-knob');
+
+    knobs.forEach((knob) => {
+      const paramName = knob.dataset.param;
+      const min = parseFloat(knob.dataset.min);
+      const max = parseFloat(knob.dataset.max);
+      const def = parseFloat(knob.dataset.default);
+      const isExp = knob.dataset.curve === 'exp';
+
+      let val;
+      if (stepIdx !== null) {
+        const stepVal = this.seq.getStepParam(stepIdx, paramName);
+        val = (stepVal !== null && stepVal !== undefined) ? stepVal : (this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def);
+      } else {
+        val = this.engine.params[paramName] !== undefined ? this.engine.params[paramName] : def;
+      }
+
+      this.updateKnobVisual(knob, val, min, max, isExp);
+    });
   }
 
   // =========================================================================
@@ -319,6 +364,7 @@ class S1UIController {
       this.updateStepSelectKeysUI();
       this.updateNoteKeysHighlight();
       this.updatePageButtonsUI();
+      this.updateAllKnobsVisual();
     }
 
     this.setDisplay(`P-${(idx + 1).toString().padStart(2, '0')}`, preset.name);
@@ -405,6 +451,7 @@ class S1UIController {
           this.updatePageButtonsUI();
           this.updateStepSelectKeysUI();
           this.updateNoteKeysHighlight();
+          this.updateAllKnobsVisual();
 
           if (loopInfo.isLooping) {
             const startP = loopInfo.start + 1;
@@ -432,6 +479,7 @@ class S1UIController {
             this.updatePageButtonsUI();
             this.updateStepSelectKeysUI();
             this.updateNoteKeysHighlight();
+            this.updateAllKnobsVisual();
 
             const pageNum = pageIdx + 1;
             const startStep = pageIdx * 16 + 1;
@@ -481,6 +529,7 @@ class S1UIController {
         this.seq.selectedStep = null;
         this.updateStepSelectKeysUI();
         this.updateNoteKeysHighlight();
+        this.updateAllKnobsVisual();
         if (this.seq.editMode === 'prob') {
           this.setDisplay('PrOb', 'EDIT: PROBABILITY (CLICK A STEP TO VIEW/SET %)');
         } else {
@@ -496,6 +545,7 @@ class S1UIController {
       this.updateStepSelectKeysUI();
       this.updateNoteKeysHighlight();
       this.updatePageButtonsUI();
+      this.updateAllKnobsVisual();
       this.setDisplay('CLr', 'PATTERN CLEARED');
     });
 
@@ -510,6 +560,10 @@ class S1UIController {
           activeKey.classList.add('current-chase');
         }
       }
+
+      if (this.seq.selectedStep === null) {
+        this.updateAllKnobsVisual(stepIdx);
+      }
     };
 
     this.seq.onPlayChange = (isPlaying) => {
@@ -522,6 +576,7 @@ class S1UIController {
         selectKeys.forEach(k => k.classList.remove('current-chase'));
         const noteKeys = document.querySelectorAll('.step-key');
         noteKeys.forEach(k => k.classList.remove('current-chase'));
+        this.updateAllKnobsVisual();
       }
     };
   }
@@ -585,6 +640,7 @@ class S1UIController {
 
         this.updateStepSelectKeysUI();
         this.updateNoteKeysHighlight();
+        this.updateAllKnobsVisual();
 
         const stepNum = (localIdx + 1).toString().padStart(2, '0');
         if (this.seq.editMode === 'select') {
