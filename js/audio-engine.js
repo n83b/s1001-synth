@@ -858,16 +858,35 @@ class S1Voice {
       case 'oscChopComb':
         this.chopFeedback.gain.setValueAtTime(Math.min(value, 0.85), now);
         break;
-      case 'filterCutoff':
-        this.lpf1.frequency.setValueAtTime(value, now);
-        this.lpf2.frequency.setValueAtTime(value, now);
+      case 'filterCutoff': {
+        const keyFollow = (this.currentNote ? (this.currentNote - 60) * 35 * this.engine.params.filterKeyFollow : 0);
+        const actualCutoff = Math.max(20, Math.min(20000, value + keyFollow));
+        this.lpf1.frequency.cancelScheduledValues(now);
+        this.lpf2.frequency.cancelScheduledValues(now);
+        this.lpf1.frequency.setValueAtTime(actualCutoff, now);
+        this.lpf2.frequency.setValueAtTime(actualCutoff, now);
         break;
+      }
       case 'filterResonance':
+        this.lpf1.Q.cancelScheduledValues(now);
+        this.lpf2.Q.cancelScheduledValues(now);
         this.lpf1.Q.setValueAtTime(value, now);
         this.lpf2.Q.setValueAtTime(value * 0.5, now);
         break;
       case 'filterHpf':
+        this.hpf.frequency.cancelScheduledValues(now);
         this.hpf.frequency.setValueAtTime(value, now);
+        break;
+      case 'filterEnvDepth':
+      case 'filterKeyFollow':
+        if (this.isPlaying && this.currentNote) {
+          const keyFollow = (this.currentNote - 60) * 35 * this.engine.params.filterKeyFollow;
+          const actualCutoff = Math.max(20, Math.min(20000, this.engine.params.filterCutoff + keyFollow));
+          this.lpf1.frequency.cancelScheduledValues(now);
+          this.lpf2.frequency.cancelScheduledValues(now);
+          this.lpf1.frequency.setValueAtTime(actualCutoff, now);
+          this.lpf2.frequency.setValueAtTime(actualCutoff, now);
+        }
         break;
       case 'lfoRate':
         this.lfo.frequency.setValueAtTime(value, now);
@@ -952,26 +971,42 @@ class S1Voice {
     this.chopDelay.delayTime.cancelScheduledValues(now);
     this.chopDelay.delayTime.setValueAtTime(chopDelayT, now);
 
-    const keyFollowOffset = (midiNote - 60) * 40 * p.filterKeyFollow;
-    const targetCutoff = Math.max(20, Math.min(18000, p.filterCutoff + keyFollowOffset));
+    const keyFollowOffset = (midiNote - 60) * 35 * p.filterKeyFollow;
+    const baseCutoff = Math.max(20, Math.min(20000, p.filterCutoff + keyFollowOffset));
 
-    const envPeakCutoff = Math.max(20, Math.min(20000, targetCutoff + (p.filterEnvDepth * 8000)));
-    const envSustainCutoff = Math.max(20, Math.min(20000, targetCutoff + (p.filterEnvDepth * 8000 * p.envSustain)));
+    let envPeakCutoff = baseCutoff;
+    let envSustainCutoff = baseCutoff;
+
+    if (Math.abs(p.filterEnvDepth) > 0.001) {
+      const sweepOctaves = p.filterEnvDepth * 7;
+      const maxPossiblePeak = baseCutoff * Math.pow(2, sweepOctaves);
+      envPeakCutoff = Math.max(20, Math.min(20000, maxPossiblePeak));
+
+      const sustainRatio = Math.max(0, Math.min(1, p.envSustain));
+      envSustainCutoff = Math.max(20, Math.min(20000, baseCutoff * Math.pow(envPeakCutoff / baseCutoff, sustainRatio)));
+    }
 
     this.lpf1.frequency.cancelScheduledValues(now);
     this.lpf2.frequency.cancelScheduledValues(now);
-    this.lpf1.frequency.setValueAtTime(targetCutoff, now);
-    this.lpf2.frequency.setValueAtTime(targetCutoff, now);
+    this.lpf1.frequency.setValueAtTime(baseCutoff, now);
+    this.lpf2.frequency.setValueAtTime(baseCutoff, now);
 
     const attackTime = Math.max(0.003, p.envAttack);
     const decayTime = Math.max(0.01, p.envDecay);
     const attackEnd = now + attackTime;
     const decayEnd = attackEnd + decayTime;
 
-    this.lpf1.frequency.linearRampToValueAtTime(envPeakCutoff, attackEnd);
-    this.lpf2.frequency.linearRampToValueAtTime(envPeakCutoff, attackEnd);
-    this.lpf1.frequency.exponentialRampToValueAtTime(Math.max(20, envSustainCutoff), decayEnd);
-    this.lpf2.frequency.exponentialRampToValueAtTime(Math.max(20, envSustainCutoff), decayEnd);
+    if (Math.abs(envPeakCutoff - baseCutoff) > 2) {
+      this.lpf1.frequency.exponentialRampToValueAtTime(Math.max(20, envPeakCutoff), attackEnd);
+      this.lpf2.frequency.exponentialRampToValueAtTime(Math.max(20, envPeakCutoff), attackEnd);
+      this.lpf1.frequency.exponentialRampToValueAtTime(Math.max(20, envSustainCutoff), decayEnd);
+      this.lpf2.frequency.exponentialRampToValueAtTime(Math.max(20, envSustainCutoff), decayEnd);
+    } else {
+      this.lpf1.frequency.setValueAtTime(baseCutoff, attackEnd);
+      this.lpf2.frequency.setValueAtTime(baseCutoff, attackEnd);
+      this.lpf1.frequency.setValueAtTime(baseCutoff, decayEnd);
+      this.lpf2.frequency.setValueAtTime(baseCutoff, decayEnd);
+    }
 
     const currentGain = Math.max(0.0001, this.voiceGain.gain.value);
     this.voiceGain.gain.cancelScheduledValues(now);
