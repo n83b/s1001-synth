@@ -289,11 +289,8 @@ class S1Sequencer {
   }
 
   recordMotion(paramName, value) {
-    if (!this.isRecordingMotion || !this.isPlaying) return;
-    if (!this.motionData[paramName]) {
-      this.motionData[paramName] = new Float32Array(64).fill(-1);
-    }
-    this.motionData[paramName][this.currentStep] = value;
+    // Continuous live motion recording disabled: P-Locks only apply to explicitly selected step
+    return;
   }
 
   getStepParam(stepIdx, paramName) {
@@ -378,6 +375,14 @@ class S1Sequencer {
         changed = true;
       } else {
         // First click: select and inspect without modifying
+        this.selectedStep = stepIdx;
+        changed = false;
+      }
+    } else if (this.editMode === 'plock') {
+      // P-LOC mode: select step to inspect & tweak parameter locks
+      if (this.selectedStep === stepIdx) {
+        changed = false;
+      } else {
         this.selectedStep = stepIdx;
         changed = false;
       }

@@ -712,12 +712,6 @@ body {
   box-shadow: 0 0 10px var(--aira-green);
 }
 
-.btn-transport.active #rec-motion-led {
-  background: var(--aira-red);
-  box-shadow: 0 0 10px var(--aira-red);
-  animation: blink 0.6s infinite alternate;
-}
-
 .btn-transport.active #loop-led {
   background: var(--aira-orange);
   box-shadow: 0 0 10px var(--aira-orange);

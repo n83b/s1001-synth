@@ -430,11 +430,6 @@
             <span class="btn-led" id="play-led"></span>
             <span class="btn-label">▶ PLAY</span>
           </button>
-          
-          <button id="btn-record" class="btn-transport" title="Motion Recording Toggle">
-            <span class="btn-led" id="rec-motion-led"></span>
-            <span class="btn-label">● MOTION REC</span>
-          </button>
 
           <button id="btn-step-loop" class="btn-transport" title="Step Loop / Pattern Slicer">
             <span class="btn-led" id="loop-led"></span>
@@ -466,12 +461,13 @@
           <button id="btn-oct-up" class="btn-step-nav" title="Octave Up">OCT + ▶</button>
         </div>
 
-        <!-- Step Edit Mode (SELECT, PROB, CLEAR) -->
+        <!-- Step Edit Mode (SELECT, PROB, P-LOC, CLEAR) -->
         <div class="edit-mode-group">
           <span class="bar-title">EDIT:</span>
           <div class="btn-micro-row">
             <button class="micro-btn active" data-step-edit-mode="select">SELECT</button>
             <button class="micro-btn" data-step-edit-mode="prob">PROB</button>
+            <button class="micro-btn" id="btn-ploc" data-step-edit-mode="plock">P-LOC</button>
             <button id="btn-clear-pattern" class="micro-btn btn-danger" title="Clear Current Pattern">CLEAR</button>
           </div>
         </div>

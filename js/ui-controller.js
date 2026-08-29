@@ -391,20 +391,12 @@ class S1UIController {
   // =========================================================================
   initTransport() {
     const btnPlay = document.getElementById('btn-play');
-    const btnRec = document.getElementById('btn-record');
     const btnStepLoop = document.getElementById('btn-step-loop');
     const btnArp = document.getElementById('btn-arp');
 
     btnPlay.addEventListener('click', () => {
       this.engine.ensureAudioContext();
       this.seq.togglePlay();
-    });
-
-    btnRec.addEventListener('click', () => {
-      this.engine.ensureAudioContext();
-      this.seq.isRecordingMotion = !this.seq.isRecordingMotion;
-      btnRec.classList.toggle('active', this.seq.isRecordingMotion);
-      this.setDisplay(this.seq.isRecordingMotion ? 'rEC.' : 'OFF', 'MOTION RECORDING');
     });
 
     btnStepLoop.addEventListener('click', () => {
@@ -526,14 +518,17 @@ class S1UIController {
         editModeBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.seq.editMode = btn.dataset.stepEditMode;
+        this.seq.isRecordingMotion = (this.seq.editMode === 'plock');
         this.seq.selectedStep = null;
         this.updateStepSelectKeysUI();
         this.updateNoteKeysHighlight();
         this.updateAllKnobsVisual();
         if (this.seq.editMode === 'prob') {
           this.setDisplay('PrOb', 'EDIT: PROBABILITY (CLICK A STEP TO VIEW/SET %)');
+        } else if (this.seq.editMode === 'plock') {
+          this.setDisplay('P-LC', 'EDIT: P-LOC (CLICK A STEP AND TWEAK KNOBS TO LOCK)');
         } else {
-          this.setDisplay(this.seq.editMode.substring(0, 4).toUpperCase(), `EDIT MODE: ${this.seq.editMode.toUpperCase()}`);
+          this.setDisplay('SELC', 'EDIT: SELECT / GATE LENGTH');
         }
       });
     });
@@ -664,6 +659,9 @@ class S1UIController {
           const pct = res && res.step ? Math.round(res.step.probability * 100) : 100;
           const dispPct = pct === 100 ? '100%' : `${pct}%`.padStart(4, ' ');
           this.setDisplay(dispPct, `STEP ${stepNum} PROBABILITY: ${pct}%`);
+        } else if (this.seq.editMode === 'plock') {
+          const hasPlocks = this.seq.getStepParams((this.seq.currentPage * 16) + localIdx);
+          this.setDisplay(`PL${stepNum}`, `STEP ${stepNum} P-LOC ${hasPlocks ? '(LOCKED PARAMS LOADED)' : '(TWEAK KNOBS TO LOCK)'}`);
         }
       });
     });
